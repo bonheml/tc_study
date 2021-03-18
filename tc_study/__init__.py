@@ -34,7 +34,7 @@ dsprites.ScreamDSprites = ChangedInitScreamDSprites
 
 
 def _load_mesh(filename):
-  """Parses a single source file and rescales contained images."""
+  """Parses a single source in_fname and rescales contained images."""
   with gfile.Open(os.path.join(CARS3D_PATH, filename), "rb") as f:
     mesh = np.einsum("abcde->deabc", sio.loadmat(f)["im"])
   flattened_mesh = mesh.reshape((-1,) + mesh.shape[2:])

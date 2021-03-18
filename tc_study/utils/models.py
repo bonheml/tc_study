@@ -31,19 +31,19 @@ def get_model_info():
     return df2
 
 
-def download_models(base_path, save_space=True, override=False):
+def download_models(base_path, save_space=False, overwrite=False):
     """ Download all the pretrained models of "Challenging Common Assumptions in the Unsupervised Learning
     of Disentangled Representations" (http://proceedings.mlr.press/v97/locatello19a.html), unzip and save them
     in <base_path>.
 
     :param base_path: The path where the models will be saved
     :param save_space: If true, only the metrics will be saved to use less space, otherwise, all the content will be saved
-    :param override: If true, any existing saved model in <base_path> will be override, otherwise, if any model is present
+    :param overwrite: If true, any existing saved model in <base_path> will be override, otherwise, if any model is present
     in the base_path, download is skipped.
     :return: None
     """
     file = pathlib.Path("{}/0".format(base_path))
-    if file.exists() and not override:
+    if file.exists() and not overwrite:
         return
     base_url = "https://storage.googleapis.com/disentanglement_lib/unsupervised_study_v1"
     for i, url in [(i, "{}/{}.zip".format(base_url, i)) for i in range(10800)]:

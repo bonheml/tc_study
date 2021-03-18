@@ -1,0 +1,39 @@
+import argparse
+
+from tc_study.truncation_experiment.evaluation import compute_truncated_unsupervised_metrics
+from tc_study.truncation_experiment.evaluation import compute_normalized_unsupervised_metrics
+from tc_study.truncation_experiment.passive_variables import compute_passive_variable_indexes
+
+
+def compute_passive_variables(args):
+    compute_passive_variable_indexes(args.model_path, args.overwrite)
+
+
+def compute_unsupervised_metrics(args):
+    if args.truncate is True:
+        compute_truncated_unsupervised_metrics(args.model_path, args.representation, overwrite=args.overwrite)
+    else:
+        compute_normalized_unsupervised_metrics(args.model_path, args.representation, overwrite=args.overwrite)
+
+
+if __name__ == "__main__":
+    # "/media/bonheml/phd_data/VAE_trained_models"
+    parser = argparse.ArgumentParser(description="Reproduce truncation experiment using dislib pre-trained VAE models")
+    subparsers = parser.add_subparsers()
+
+    pv = subparsers.add_parser("passive_variables", aliases=["pv", "variables"])
+    pv.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
+    pv.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    pv.set_defaults(func=compute_passive_variables)
+
+    um = subparsers.add_parser("unsupervised_metrics", aliases=["um", "metrics"])
+    um.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
+    um.add_argument("representation", type=str, choices=["mean", "sampled"],
+                    help="Representation from which we need to compute unsupervised scores")
+    um.add_argument("--truncate", "-t", action="store_true",
+                    help="Compute unsupervised metrics. Passive variables must be computed beforehand.")
+    um.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    um.set_defaults(func=compute_unsupervised_metrics)
+
+    res = parser.parse_args()
+    res.func(res)

@@ -1,0 +1,11 @@
+import argparse
+
+from tc_study.visualization.aggregation import aggregate_all_scores
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Aggregate unsupervised scores by (model,dataset) pair")
+    parser.add_argument("models_path", type=str, help="Path where the pre-trained models are stored")
+    parser.add_argument("output_path", type=str, help="Path where the aggregated results will be stored")
+
+    args = parser.parse_args()
+    aggregate_all_scores(args.models_path, args.output_path)

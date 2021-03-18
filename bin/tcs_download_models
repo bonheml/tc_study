@@ -1,0 +1,9 @@
+import argparse
+from tc_study.utils.models import download_models
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Download all dislib pre-trained VAE models")
+    parser.add_argument("models_path", type=str, help="Path where the pre-trained models will be stored")
+    parser.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    args = parser.parse_args()
+    download_models(args.model_path, overwrite=args.overwrite)

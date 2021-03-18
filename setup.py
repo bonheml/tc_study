@@ -11,8 +11,10 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     scripts=[
-        'bin/tcs_polarized_regime',
-        'bin/tcs_hyperparameters_selection',
+        'bin/tcs_truncation_experiment',
+        'bin/tcs_aggregate_results',
+        'bin/tcs_visualize_results',
+        'bin/tcs_download_models'
     ],
     install_requires=[
         'tensorboard==1.14.0',
