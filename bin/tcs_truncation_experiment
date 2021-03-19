@@ -31,7 +31,7 @@ if __name__ == "__main__":
     um.add_argument("representation", type=str, choices=["mean", "sampled"],
                     help="Representation from which we need to compute unsupervised scores")
     um.add_argument("--truncate", "-t", action="store_true",
-                    help="Compute unsupervised metrics. Passive variables must be computed beforehand.")
+                    help="Compute truncated unsupervised metrics. Passive variables must be computed beforehand.")
     um.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
     um.set_defaults(func=compute_unsupervised_metrics)
 

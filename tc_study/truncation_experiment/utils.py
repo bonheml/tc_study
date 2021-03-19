@@ -16,5 +16,6 @@ def _vp_truncation(target, pv_idx_file=gin.REQUIRED):
         pvs = json.load(f)
     pv_idx = pvs["evaluation_results.passive_variables_idx"]
     num_pv = pvs["evaluation_results.num_passive_variables"]
-    target = np.delete(target, pv_idx, 0)
+    if num_pv > 0:
+        target = np.delete(target, pv_idx, 0)
     return target, num_pv

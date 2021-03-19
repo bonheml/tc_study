@@ -15,8 +15,7 @@ def unsupervised_metrics(mus_train):
 
     # Gaussian total correlation.
     scores["gaussian_total_correlation"] = dlib_unsupervised_metrics.gaussian_total_correlation(cov_mus)
-    scores["gaussian_total_correlation_norm"] = (
-            scores["gaussian_total_correlation"] / np.sum(np.diag(cov_mus)))
+    scores["gaussian_total_correlation_norm"] = (scores["gaussian_total_correlation"] / np.sum(np.diag(cov_mus)))
 
     # Gaussian Wasserstein correlation.
     scores["gaussian_wasserstein_correlation"] = dlib_unsupervised_metrics.gaussian_wasserstein_correlation(cov_mus)
@@ -78,11 +77,11 @@ def truncated_unsupervised_metrics(ground_truth_data,
     blacklist=["ground_truth_data", "representation_function", "random_state",
                "artifact_dir"])
 def normalized_unsupervised_metrics(ground_truth_data,
-                                   representation_function,
-                                   random_state,
-                                   artifact_dir=None,
-                                   num_train=gin.REQUIRED,
-                                   batch_size=16):
+                                    representation_function,
+                                    random_state,
+                                    artifact_dir=None,
+                                    num_train=gin.REQUIRED,
+                                    batch_size=16):
     """Computes unsupervised scores based on covariance and mutual information along with normalised versions
 
     Args:
