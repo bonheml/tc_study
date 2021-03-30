@@ -1,7 +1,8 @@
 import argparse
-
-from tc_study.truncation_experiment.evaluation import compute_truncated_unsupervised_metrics
-from tc_study.truncation_experiment.evaluation import compute_normalized_unsupervised_metrics
+from tc_study.truncation_experiment.downstream_task_evaluation import compute_downstream_task
+from tc_study.truncation_experiment.downstream_task_evaluation import compute_truncated_downstream_task
+from tc_study.truncation_experiment.unsupervised_evaluation import compute_truncated_unsupervised_metrics
+from tc_study.truncation_experiment.unsupervised_evaluation import compute_normalized_unsupervised_metrics
 from tc_study.truncation_experiment.passive_variables import compute_passive_variable_indexes
 
 
@@ -14,6 +15,15 @@ def compute_unsupervised_metrics(args):
         compute_truncated_unsupervised_metrics(args.model_path, args.representation, overwrite=args.overwrite)
     else:
         compute_normalized_unsupervised_metrics(args.model_path, args.representation, overwrite=args.overwrite)
+
+
+def compute_downstream_tasks(args):
+    if args.truncate is True:
+        compute_truncated_downstream_task(args.model_path, args.representation, predictor=args.predictor,
+                                          overwrite=args.overwrite)
+    else:
+        compute_downstream_task(args.model_path, args.representation, predictor=args.predictor,
+                                overwrite=args.overwrite)
 
 
 if __name__ == "__main__":
@@ -34,6 +44,17 @@ if __name__ == "__main__":
                     help="Compute truncated unsupervised metrics. Passive variables must be computed beforehand.")
     um.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
     um.set_defaults(func=compute_unsupervised_metrics)
+
+    dt = subparsers.add_parser("downstream_tasks", aliases=["dt", "tasks"])
+    dt.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
+    dt.add_argument("representation", type=str, choices=["mean", "sampled"],
+                    help="Representation which will be used for downstream tasks")
+    dt.add_argument("predictor", type=str, choices=["logistic_regression_cv", "gradient_boosting_classifier"],
+                    help="Predictor function to use")
+    dt.add_argument("--truncate", "-t", action="store_true",
+                    help="Compute truncated downstream tasks. Passive variables must be computed beforehand.")
+    dt.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    dt.set_defaults(func=compute_downstream_tasks)
 
     res = parser.parse_args()
     res.func(res)

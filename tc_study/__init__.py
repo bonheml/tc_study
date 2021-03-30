@@ -4,7 +4,7 @@ import scipy.io as sio
 import numpy as np
 
 import warnings
-warnings.filterwarnings("ignore", message=r"Passing", category=FutureWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 from tensorflow import gfile
 import tensorflow as tf

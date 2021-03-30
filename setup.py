@@ -17,6 +17,7 @@ setup(
         'bin/tcs_download_models'
     ],
     install_requires=[
+        'scikit-learn==0.21.3',
         'tensorboard==1.14.0',
         'tensorflow-estimator==1.14.0',
         'tensorflow-hub==0.9.0',

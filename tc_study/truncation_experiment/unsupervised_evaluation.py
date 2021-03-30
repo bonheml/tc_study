@@ -6,8 +6,15 @@ from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 from disentanglement_lib.evaluation.metrics import unsupervised_metrics as dlib_unsupervised_metrics
 
+from tc_study.truncation_experiment.utils import get_pv
+
 
 def unsupervised_metrics(mus_train):
+    """Computes unsupervised scores based on covariance and mutual information along with normalised versions.
+
+    :param mus_train: the generated representations
+    :return: Dictionary with scores.
+    """
     scores = {}
     num_codes = mus_train.shape[0]
     cov_mus = np.cov(mus_train)
@@ -42,19 +49,18 @@ def truncated_unsupervised_metrics(ground_truth_data,
                                    artifact_dir=None,
                                    num_train=gin.REQUIRED,
                                    batch_size=16):
-    """Computes unsupervised scores based on covariance and mutual information after having removed passive variables
+    """Computes unsupervised scores based on covariance and mutual information along with normalised versions. This
+    follows the implementation of unsupervised_metrics function from disentanglement lib but passive variables are
+    truncated and TC is normalised.
 
-    Args:
-      ground_truth_data: GroundTruthData to be sampled from.
-      representation_function: Function that takes observations as input and
-        outputs a dim_representation sized representation for each observation.
-      random_state: Numpy random state used for randomness.
-      artifact_dir: Optional path to directory where artifacts can be saved.
-      num_train: Number of points used for training.
-      batch_size: Batch size for sampling.
-
-    Returns:
-      Dictionary with scores.
+    :param ground_truth_data: GroundTruthData to be sampled from.
+    :param representation_function: Function that takes observations as input and outputs a dim_representation sized
+    representation for each observation.
+    :param random_state: Numpy random state used for randomness.
+    :param artifact_dir: Optional path to directory where artifacts can be saved.
+    :param num_train: Number of points used for training.
+    :param batch_size: Batch size for sampling.
+    :return: Dictionary with scores.
     """
     del artifact_dir
     scores = {}
@@ -82,19 +88,17 @@ def normalized_unsupervised_metrics(ground_truth_data,
                                     artifact_dir=None,
                                     num_train=gin.REQUIRED,
                                     batch_size=16):
-    """Computes unsupervised scores based on covariance and mutual information along with normalised versions
+    """Computes unsupervised scores based on covariance and mutual information along with normalised versions. This
+    follows the implementation of unsupervised_metrics function from disentanglement lib but TC is also normalised.
 
-    Args:
-      ground_truth_data: GroundTruthData to be sampled from.
-      representation_function: Function that takes observations as input and
-        outputs a dim_representation sized representation for each observation.
-      random_state: Numpy random state used for randomness.
-      artifact_dir: Optional path to directory where artifacts can be saved.
-      num_train: Number of points used for training.
-      batch_size: Batch size for sampling.
-
-    Returns:
-      Dictionary with scores.
+    :param ground_truth_data: GroundTruthData to be sampled from.
+    :param representation_function: Function that takes observations as input and outputs a dim_representation sized
+    representation for each observation.
+    :param random_state: Numpy random state used for randomness.
+    :param artifact_dir: Optional path to directory where artifacts can be saved.
+    :param num_train: Number of points used for training.
+    :param batch_size: Batch size for sampling.
+    :return: Dictionary with scores.
     """
     del artifact_dir
     mus_train, _ = dlib_utils.generate_batch_factor_code(ground_truth_data, representation_function, num_train,
@@ -104,6 +108,13 @@ def normalized_unsupervised_metrics(ground_truth_data,
 
 
 def compute_truncated_unsupervised_metrics(base_path, representation, overwrite=True):
+    """Compute unsupervised metrics score for a given representation with its passive variables removed over all models
+
+    :param base_path: Path of the models
+    :param representation: type of representation, can be mean or sampled
+    :param overwrite: If true, overwrite previous results, otherwise raises an error if previous results exists
+    :return: None
+    """
     gin_bindings = [
         "evaluation.evaluation_fn = @truncated_unsupervised_metrics",
         "truncated_unsupervised_metrics.num_train = 10000",
@@ -119,20 +130,21 @@ def compute_truncated_unsupervised_metrics(base_path, representation, overwrite=
         result_path = path.parent.parent / "metrics" / representation / "truncated_unsupervised"
         truncation_file = (path.parent.parent / "metrics" / "mean" / "passive_variables" / "results" / "aggregate"
                            / "evaluation.json")
-        try:
-            assert truncation_file.exists()
-        except AssertionError:
-            raise FileNotFoundError("Passive variables indexes not found. {} does not exist. "
-                                    "Make sure to compute passive variable indexes before truncated scores"
-                                    .format(str(truncation_file)))
-
-        bindings = gin_bindings + ["truncation.pv_idx_file = '{}'".format(str(truncation_file))]
+        pv_idx, num_pv = get_pv(truncation_file)
+        bindings = gin_bindings + ["truncation.pv_idx = {}".format(pv_idx), "truncation.num_pv = {}".format(num_pv)]
         print("Computing truncated unsupervised metrics of {} using {} representation"
               .format(path.parent.parent, representation))
         evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=bindings)
 
 
 def compute_normalized_unsupervised_metrics(base_path, representation, overwrite=True):
+    """Compute unsupervised metrics score for a given representation over all models
+
+    :param base_path: Path of the models
+    :param representation: type of representation, can be mean or sampled
+    :param overwrite: If true, overwrite previous results, otherwise raises an error if previous results exists
+    :return: None
+    """
     gin_bindings = [
         "evaluation.evaluation_fn = @normalized_unsupervised_metrics",
         "normalized_unsupervised_metrics.num_train = 10000",

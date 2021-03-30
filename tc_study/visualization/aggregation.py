@@ -1,5 +1,6 @@
 from disentanglement_lib.utils import aggregate_results
 from tc_study.utils.models import get_model_info
+from tc_study.utils.string_manipulation import remove_suffix, remove_prefix
 
 
 def aggregate_scores(model_info, base_path, representation, metric="normalized_unsupervised"):
@@ -14,19 +15,17 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
     :return: A dataframe containing the TC scores of models matching <model_info> along with the dataset, representation,
     model index, model type and hyper-parameter values.
     """
-    ds = ""
-    if metric.startswith("downstream_task"):
-        ds = metric.split("downstream_task_")[1]
+    m = remove_suffix(remove_suffix(remove_prefix(metric, "downstream_task_"), "_sklearn"), "_metric")
     to_keep = {"evaluation_results.gaussian_total_correlation": "gaussian_total_correlation",
                "evaluation_results.gaussian_total_correlation_norm": "gaussian_total_correlation_norm",
                "evaluation_results.gaussian_wasserstein_correlation": "gaussian_wasserstein_correlation",
                "evaluation_results.gaussian_wasserstein_correlation_norm": "gaussian_wasserstein_correlation_norm",
                "evaluation_results.mutual_info_score": "mutual_info_score",
                "evaluation_results.num_passive_variables": "num_passive_variables",
-               "evaluation_results.10:mean_test_accuracy": "{}_10".format(ds),
-               "evaluation_results.100:mean_test_accuracy": "{}_100".format(ds),
-               "evaluation_results.1000:mean_test_accuracy": "{}_1000".format(ds),
-               "evaluation_results.10000:mean_test_accuracy": "{}_10000".format(ds),
+               "evaluation_results.10:mean_test_accuracy": "{}_10".format(m),
+               "evaluation_results.100:mean_test_accuracy": "{}_100".format(m),
+               "evaluation_results.1000:mean_test_accuracy": "{}_1000".format(m),
+               "evaluation_results.10000:mean_test_accuracy": "{}_10000".format(m),
                "postprocess_config.dataset.name": "dataset",
                "postprocess_config.postprocess.name": "representation",
                "train_config.model.model_num": "model_index",
@@ -36,7 +35,7 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
                     "train_config.beta_tc_vae.beta": "beta",
                     "train_config.factor_vae.gamma": "gamma",
                     "train_config.annealed_vae.c_max": "c_max",
-                    "train_config.vae.beta": "h_beta"}
+                    "train_config.vae.beta": "beta"}
 
     all_cols = dict(to_keep, **model_params)
     result_file_pattern = ["{}/{}/metrics/{}/{}/results/aggregate/evaluation.json"
@@ -60,6 +59,7 @@ def aggregate_all_scores(base_path, out_path):
     :return: None
     """
     models_info = get_model_info()
+
     # Models trained on shapes3d are not released so removing this part
     models_info = models_info[models_info.dataset != "shapes3d"]
 
@@ -75,6 +75,7 @@ def aggregate_all_scores(base_path, out_path):
         df2["truncated"] = True
         df = df.append(df2, ignore_index=True)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
+        del df, df2
 
 
 

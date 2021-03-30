@@ -18,18 +18,15 @@ def passive_variables_indexes(ground_truth_data,
                               batch_size=16):
     """Get indexes of variables whose variance is lower than a given threshold.
 
-    Args:
-      ground_truth_data: GroundTruthData to be sampled from.
-      representation_function: Function that takes observations as input and
-        outputs a dim_representation sized representation for each observation.
-      random_state: Numpy random state used for randomness.
-      artifact_dir: Optional path to directory where artifacts can be saved.
-      threshold: threshold under which variance is considered low enough to correspond to passive variables
-      num_train: Number of points used for training.
-      batch_size: Batch size for sampling.
-
-    Returns:
-      Dictionary with scores.
+    :param ground_truth_data: GroundTruthData to be sampled from.
+    :param representation_function: Function that takes observations as input and outputs a dim_representation sized
+     representation for each observation.
+    :param random_state: Numpy random state used for randomness.
+    :param artifact_dir: Optional path to directory where artifacts can be saved.
+    :param num_train: Threshold under which variance is considered low enough to correspond to passive variables
+    :param threshold: Number of points used for training.
+    :param batch_size: Batch size for sampling.
+    :return: Dictionary with scores.
     """
     del artifact_dir
     scores = {}
@@ -48,6 +45,12 @@ def passive_variables_indexes(ground_truth_data,
 
 
 def compute_passive_variable_indexes(base_path, overwrite=True):
+    """ Get passive variable indexes of all models
+
+    :param base_path: path where the models are stored
+    :param overwrite: if true, overwrite existing results
+    :return: None
+    """
     gin_bindings = [
         "evaluation.evaluation_fn = @passive_variables_idx",
         "passive_variables_idx.num_train = 10000", "evaluation.random_seed = 2051556033",
