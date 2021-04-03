@@ -17,7 +17,6 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
     """
     m = remove_suffix(remove_suffix(remove_prefix(metric, "downstream_task_"), "_sklearn"), "_metric")
     to_keep = {"evaluation_results.gaussian_total_correlation": "gaussian_total_correlation",
-               "evaluation_results.gaussian_total_correlation_norm": "gaussian_total_correlation_norm",
                "evaluation_results.gaussian_wasserstein_correlation": "gaussian_wasserstein_correlation",
                "evaluation_results.gaussian_wasserstein_correlation_norm": "gaussian_wasserstein_correlation_norm",
                "evaluation_results.mutual_info_score": "mutual_info_score",
