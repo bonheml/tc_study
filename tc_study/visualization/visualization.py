@@ -11,7 +11,7 @@ def save_figure(out_fname, dpi=300):
     plt.close()
 
 
-def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlation_norm"):
+def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
     """ Generate and save a line plot of mean and sampled unsupervised score for a given model and dataset with one
     hyper-parameter of increasing value.
 
@@ -19,14 +19,20 @@ def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlatio
     model index, model type and hyper-parameter values.
     :param out_path: path where the pdf graph will be saved
     :param y_label: label to use for y axis. Can be gaussian_total_correlation, gaussian_wasserstein_correlation,
-    gaussian_wasserstein_correlation_norm, or mutual_info_score. Default is gaussian_total_correlation_norm
+    gaussian_wasserstein_correlation_norm, or mutual_info_score. Default is gaussian_total_correlation
+    :param ci: the error bar to use in graph. If None, no error bar will appear.
     :return: None
     """
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
-    out_fname = "{}/truncated_{}_{}_{}_plot.pdf".format(out_path, y_label, df.model.iloc[0], df.dataset.iloc[0])
+    model = df.model.iloc[0]
+    dataset = df.dataset.iloc[0]
+    if ci:
+        out_fname = "{}/truncated_{}_{}_{}_sd_plot.pdf".format(out_path, y_label, model, dataset)
+    else:
+        out_fname = "{}/truncated_{}_{}_{}_plot.pdf".format(out_path, y_label, model, dataset)
     x_labels = ["beta", "c_max", "gamma", "lambda_od"]
     x_label = list(df.columns.intersection(x_labels))[0]
-    g = sns.catplot(data=df, x=x_label, y=y_label, col="truncated", hue="representation", ci=None, kind="point",
+    g = sns.catplot(data=df, x=x_label, y=y_label, col="truncated", hue="representation", ci=ci, kind="point",
                     linestyles=["-", "--"], markers=["o", "x"], dodge=True)
     g.set_axis_labels(x_label.replace("_", " ").capitalize(), y_label.replace("_", " ").capitalize())
 
@@ -38,27 +44,34 @@ def draw_all_truncated_scores(in_path, out_path, y_label):
     all_files = glob.glob("{}/*.tsv".format(in_path))
     for file in all_files:
         draw_truncated_scores(file, out_path, y_label)
+        draw_truncated_scores(file, out_path, y_label, ci="sd")
 
 
-def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation"):
+def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
     """ Generate and save a line plot of an unsupervised metric score along with an histogram of passive variables for
     a given model and dataset with one hyper-parameter of increasing value.
 
-    ::param in_fname: The tsv in_fname containing unsupervised scores of models along with the dataset, representation,
+    :param in_fname: The tsv in_fname containing unsupervised scores of models along with the dataset, representation,
     model index, model type and hyper-parameter values.
     :param out_path: path where the pdf graph will be saved
     :param y_label: the metric to use, default is normalized gaussian TC
+    :param ci: the error bar to use in graph. If None, no error bar will appear.
     :return: None
     """
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
-    out_fname = "{}/passive_variables_{}_{}_{}_plot.pdf".format(out_path, y_label, df.model.iloc[0], df.dataset.iloc[0])
+    model = df.model.iloc[0]
+    dataset = df.dataset.iloc[0]
+    if ci:
+        out_fname = "{}/passive_variables_{}_{}_{}_sd_plot.pdf".format(out_path, y_label, model, dataset)
+    else:
+        out_fname = "{}/passive_variables_{}_{}_{}_plot.pdf".format(out_path, y_label, model, dataset)
     x_labels = ["beta", "c_max", "gamma", "lambda_od"]
     x_label = list(df.columns.intersection(x_labels))[0]
     fig, ax1 = plt.subplots()
 
-    sns.barplot(data=df, x=x_label, y="num_passive_variables", palette="viridis", ax=ax1, ci=None, alpha=0.5)
+    sns.barplot(data=df, x=x_label, y="num_passive_variables", palette="viridis", ax=ax1, ci=ci, alpha=0.5)
     ax2 = ax1.twinx()
-    sns.pointplot(data=df, x=x_label, y=y_label, ax=ax2, ci=None, hue="representation", linestyles=["-", "--"],
+    sns.pointplot(data=df, x=x_label, y=y_label, ax=ax2, ci=ci, hue="representation", linestyles=["-", "--"],
                   markers=["o", "x"])
 
     ax1.set_xlabel(x_label.replace("_", " ").capitalize())
@@ -74,6 +87,7 @@ def draw_all_tc_vp(in_path, out_path, y_label):
     all_files = glob.glob("{}/*.tsv".format(in_path))
     for file in all_files:
         draw_tc_vp(file, out_path, y_label)
+        draw_tc_vp(file, out_path, y_label, ci="sd")
 
 
 def draw_downstream_task_reg(in_fname, out_path, metric="gaussian_total_correlation",
