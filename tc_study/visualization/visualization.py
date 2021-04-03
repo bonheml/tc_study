@@ -70,10 +70,10 @@ def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation"):
     save_figure(out_fname)
 
 
-def draw_all_tc_vp(in_path, out_path):
+def draw_all_tc_vp(in_path, out_path, y_label):
     all_files = glob.glob("{}/*.tsv".format(in_path))
     for file in all_files:
-        draw_tc_vp(file, out_path)
+        draw_tc_vp(file, out_path, y_label)
 
 
 def draw_downstream_task_reg(in_fname, out_path, metric="gaussian_total_correlation",

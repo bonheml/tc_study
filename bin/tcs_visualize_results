@@ -5,7 +5,7 @@ from tc_study.visualization.visualization import draw_all_truncated_scores
 
 
 def draw_passive_variables(args):
-    draw_all_tc_vp(args.data_path, args.output_path)
+    draw_all_tc_vp(args.data_path, args.output_path, args.metric)
 
 
 def draw_downstream_task_scores(args):
@@ -27,6 +27,7 @@ if __name__ == "__main__":
     pv = subparsers.add_parser("passive_variables", aliases=["pv"])
     pv.add_argument("data_path", type=str, help="Path where the aggregated results are stored")
     pv.add_argument("output_path", type=str, help="Path where the figures will be stored")
+    pv.add_argument("metric", type=str, choices=metric_choices, help="Metric to use")
     pv.set_defaults(func=draw_passive_variables)
 
     dt = subparsers.add_parser("downstream_task", aliases=["dt"])
