@@ -6,7 +6,7 @@ from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 from disentanglement_lib.evaluation.metrics import unsupervised_metrics as dlib_unsupervised_metrics
 
-from tc_study.truncation_experiment.utils import get_pv
+from tc_study.truncation_experiment.utils import get_pv, discrete_normalized_mutual_info, discrete_adjusted_mutual_info
 
 
 def unsupervised_metrics(mus_train):
@@ -31,10 +31,21 @@ def unsupervised_metrics(mus_train):
     # Compute average mutual information between different factors.
     mus_discrete = dlib_utils.make_discretizer(mus_train)
     mutual_info_matrix = dlib_utils.discrete_mutual_info(mus_discrete, mus_discrete)
-
     np.fill_diagonal(mutual_info_matrix, 0)
     mutual_info_score = np.sum(mutual_info_matrix) / (num_codes ** 2 - num_codes)
     scores["mutual_info_score"] = mutual_info_score
+
+    # Compute average normalized mutual information between different factors.
+    norm_mutual_info_matrix = discrete_normalized_mutual_info(mus_discrete, mus_discrete)
+    np.fill_diagonal(norm_mutual_info_matrix, 0)
+    norm_mutual_info_score = np.sum(norm_mutual_info_matrix) / (num_codes ** 2 - num_codes)
+    scores["norm_mutual_info_score"] = norm_mutual_info_score
+
+    # Compute average adjusted mutual information between different factors.
+    adj_mutual_info_matrix = discrete_adjusted_mutual_info(mus_discrete, mus_discrete)
+    np.fill_diagonal(adj_mutual_info_matrix, 0)
+    adj_mutual_info_score = np.sum(adj_mutual_info_matrix) / (num_codes ** 2 - num_codes)
+    scores["adjusted_mutual_info_score"] = adj_mutual_info_score
     return scores
 
 

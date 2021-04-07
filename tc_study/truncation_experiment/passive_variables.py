@@ -37,7 +37,9 @@ def passive_variables_indexes(ground_truth_data,
     cov_mus = np.cov(mus_train)
     assert num_codes == cov_mus.shape[0]
 
-    pv_idx = np.where(np.diag(cov_mus) < threshold)[0].tolist()
+    small_var_idx = np.where(np.diag(cov_mus) < threshold)[0]
+    small_max_idx = np.where(mus_train.max(axis=1) < threshold)
+    pv_idx = list(np.intersect1d(small_var_idx, small_max_idx))
     num_pv = len(pv_idx)
     scores["passive_variables_idx"] = pv_idx
     scores["num_passive_variables"] = num_pv

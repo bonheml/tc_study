@@ -19,7 +19,8 @@ def draw_truncated_scores(args):
 if __name__ == "__main__":
     # /media/bonheml/phd_data/VAE_TC_study/aggregated_results
     metric_choices = ["gaussian_total_correlation", "gaussian_wasserstein_correlation",
-                      "gaussian_wasserstein_correlation_norm", "mutual_info_score"]
+                      "gaussian_wasserstein_correlation_norm", "mutual_info_score",
+                      "adjusted_mutual_info_score", "norm_mutual_info_score"]
     parser = argparse.ArgumentParser(description="Reproduce figures from the paper")
     subparsers = parser.add_subparsers()
 

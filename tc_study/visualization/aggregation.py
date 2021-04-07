@@ -20,6 +20,8 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
                "evaluation_results.gaussian_wasserstein_correlation": "gaussian_wasserstein_correlation",
                "evaluation_results.gaussian_wasserstein_correlation_norm": "gaussian_wasserstein_correlation_norm",
                "evaluation_results.mutual_info_score": "mutual_info_score",
+               "evaluation_results.norm_mutual_info_score": "norm_mutual_info_score",
+               "evaluation_results.adjusted_mutual_info_score": "adjusted_mutual_info_score",
                "evaluation_results.num_passive_variables": "num_passive_variables",
                "evaluation_results.10:mean_test_accuracy": "{}_10".format(m),
                "evaluation_results.100:mean_test_accuracy": "{}_100".format(m),

@@ -14,7 +14,7 @@ setup(
         'bin/tcs_truncation_experiment',
         'bin/tcs_aggregate_results',
         'bin/tcs_visualize_results',
-        'bin/tcs_download_models'
+        'bin/tcs_download'
     ],
     install_requires=[
         'scikit-learn==0.21.3',

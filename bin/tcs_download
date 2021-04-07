@@ -1,0 +1,33 @@
+import argparse
+import os
+import subprocess
+
+from tc_study.utils.models import download_models
+
+
+def dl_models(args):
+    download_models(args.model_path, overwrite=args.overwrite)
+
+
+def dl_dataset(args):
+    os.chdir(args.dataset_path)
+    subprocess.call("dlib_download_data", shell=True)
+    print("Dataset downloaded. If your dataset path is not in your main folder, define the environment variable"
+          " DISENTANGLEMENT_LIB_DATA='{}' to allow dislib to access your dataset.".format(args.dataset_path))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Download model and dataset from dislib")
+    subparsers = parser.add_subparsers()
+
+    m = subparsers.add_parser("models", aliases=["m"])
+    m.add_argument("models_path", type=str, help="Path where the pre-trained models will be stored")
+    m.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    m.set_defaults(func=dl_models)
+
+    d = subparsers.add_parser("dataset", aliases=["d"])
+    d.add_argument("dataset_path", type=str, help="Path where the dataset will be stored")
+    d.set_defaults(func=dl_dataset)
+
+    res = parser.parse_args()
+    res.func(res)
