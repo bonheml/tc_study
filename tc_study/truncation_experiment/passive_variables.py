@@ -4,6 +4,8 @@ import pathlib
 from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 
+from tc_study.truncation_experiment import logger
+
 
 @gin.configurable(
     "passive_variables_idx",
@@ -38,7 +40,7 @@ def passive_variables_indexes(ground_truth_data,
     assert num_codes == cov_mus.shape[0]
 
     small_var_idx = np.where(np.diag(cov_mus) < threshold)[0]
-    small_max_idx = np.where(mus_train.max(axis=1) < threshold)
+    small_max_idx = np.where(mus_train.mean(axis=1)**2 < threshold)
     pv_idx = list(np.intersect1d(small_var_idx, small_max_idx))
     num_pv = len(pv_idx)
     scores["passive_variables_idx"] = pv_idx
@@ -63,5 +65,5 @@ def compute_passive_variable_indexes(base_path, overwrite=True):
     for path in model_paths:
         path = pathlib.Path(path)
         result_path = path.parent.parent / "metrics" / "mean" / "passive_variables"
-        print("Computing passive variable indexes of {}".format(path.parent.parent))
+        logger.info("Computing passive variable indexes of {}".format(path.parent.parent))
         evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)

@@ -1,20 +1,42 @@
 import argparse
-from tc_study.truncation_experiment.downstream_task_evaluation import compute_downstream_task
-from tc_study.truncation_experiment.downstream_task_evaluation import compute_truncated_downstream_task
-from tc_study.truncation_experiment.unsupervised_evaluation import compute_truncated_unsupervised_metrics
-from tc_study.truncation_experiment.unsupervised_evaluation import compute_normalized_unsupervised_metrics
+from tc_study.truncation_experiment.downstream_task_evaluation import compute_downstream_task, \
+    compute_truncated_downstream_task
+from tc_study.truncation_experiment.unsupervised_evaluation import compute_truncated_unsupervised_metrics, \
+    compute_normalized_unsupervised_metrics
+from tc_study.truncation_experiment.unsupervised_evaluation_mp import compute_normalized_unsupervised_metrics_mp, \
+    compute_truncated_unsupervised_metrics_mp
 from tc_study.truncation_experiment.passive_variables import compute_passive_variable_indexes
+from tc_study.truncation_experiment.passive_variables_mp import compute_passive_variable_indexes_mp
 
 
 def compute_passive_variables(args):
-    compute_passive_variable_indexes(args.model_path, args.overwrite)
+    if args.multiprocess is not None:
+        compute_passive_variable_indexes_mp(args.model_path, args.overwrite, nb_proc=args.multiprocess)
+    else:
+        compute_passive_variable_indexes(args.model_path, args.overwrite)
 
 
 def compute_unsupervised_metrics(args):
+    if args.multiprocess is not None:
+        compute_unsupervised_metrics_mp(args)
+    else:
+        compute_unsupervised_metrics_sp(args)
+
+
+def compute_unsupervised_metrics_sp(args):
     if args.truncate is True:
         compute_truncated_unsupervised_metrics(args.model_path, args.representation, overwrite=args.overwrite)
     else:
         compute_normalized_unsupervised_metrics(args.model_path, args.representation, overwrite=args.overwrite)
+
+
+def compute_unsupervised_metrics_mp(args):
+    if args.truncate is True:
+        compute_truncated_unsupervised_metrics_mp(args.model_path, args.representation, overwrite=args.overwrite,
+                                                  nb_proc=args.multiprocess)
+    else:
+        compute_normalized_unsupervised_metrics_mp(args.model_path, args.representation, overwrite=args.overwrite,
+                                                   nb_proc=args.multiprocess)
 
 
 def compute_downstream_tasks(args):
@@ -34,6 +56,7 @@ if __name__ == "__main__":
     pv = subparsers.add_parser("passive_variables", aliases=["pv", "variables"])
     pv.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
     pv.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    pv.add_argument("--multiprocess", "-m", nargs='?', const=4, type=int, help="UNSTABLE: Performs distributed computation")
     pv.set_defaults(func=compute_passive_variables)
 
     um = subparsers.add_parser("unsupervised_metrics", aliases=["um", "metrics"])
@@ -43,6 +66,7 @@ if __name__ == "__main__":
     um.add_argument("--truncate", "-t", action="store_true",
                     help="Compute truncated unsupervised metrics. Passive variables must be computed beforehand.")
     um.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    um.add_argument("--multiprocess", "-m", nargs='?', const=4, type=int, help="UNSTABLE: Performs distributed computation")
     um.set_defaults(func=compute_unsupervised_metrics)
 
     dt = subparsers.add_parser("downstream_tasks", aliases=["dt", "tasks"])

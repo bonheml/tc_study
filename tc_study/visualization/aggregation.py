@@ -15,7 +15,7 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
     :return: A dataframe containing the TC scores of models matching <model_info> along with the dataset, representation,
     model index, model type and hyper-parameter values.
     """
-    m = remove_suffix(remove_suffix(remove_prefix(metric, "downstream_task_"), "_sklearn"), "_metric")
+    m = remove_prefix(remove_prefix(metric, "truncated_"), "downstream_task_")
     to_keep = {"evaluation_results.gaussian_total_correlation": "gaussian_total_correlation",
                "evaluation_results.gaussian_wasserstein_correlation": "gaussian_wasserstein_correlation",
                "evaluation_results.gaussian_wasserstein_correlation_norm": "gaussian_wasserstein_correlation_norm",
@@ -64,19 +64,31 @@ def aggregate_all_scores(base_path, out_path):
     # Models trained on shapes3d are not released so removing this part
     models_info = models_info[models_info.dataset != "shapes3d"]
 
+    # Removing unused dip-vae-i model
+    models_info = models_info[models_info.model != "dip-vae-i"]
+
     for i, model_info in models_info.iterrows():
         print("Aggregating unsupervised scores of {} on {}".format(model_info.model, model_info.dataset))
         df = aggregate_scores(model_info, base_path, "sampled")
         df = df.append(aggregate_scores(model_info, base_path, "mean"), ignore_index=True)
         pv = aggregate_scores(model_info, base_path, "mean", "passive_variables").drop(columns=["representation"])
+        # TODO: add this once training is finished
+        # dtm = aggregate_scores(model_info, base_path, "mean", "downstream_task_logistic_regression")
+        # dts = aggregate_scores(model_info, base_path, "sampled", "downstream_task_logistic_regression")
+        # df = df.join([pv, dtm, dts])
         df = df.merge(pv)
         df["truncated"] = False
         df2 = aggregate_scores(model_info, base_path, "sampled", "truncated_unsupervised")
         df2 = df2.append(aggregate_scores(model_info, base_path, "mean", "truncated_unsupervised"), ignore_index=True)
+        # TODO: add this once training is finished
+        # dtm = aggregate_scores(model_info, base_path, "mean", "truncated_downstream_task_logistic_regression")
+        # dts = aggregate_scores(model_info, base_path, "sampled", "truncated_downstream_task_logistic_regression")
+        # df2 = df2.merge([dtm, dts])
         df2["truncated"] = True
         df = df.append(df2, ignore_index=True)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
         del df, df2
+
 
 
 

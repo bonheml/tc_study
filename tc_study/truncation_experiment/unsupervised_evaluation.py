@@ -1,4 +1,4 @@
-from tc_study.truncation_experiment import utils
+from tc_study.truncation_experiment import utils, logger
 import pathlib
 import gin
 import numpy as np
@@ -142,8 +142,8 @@ def compute_truncated_unsupervised_metrics(base_path, representation, overwrite=
                            / "evaluation.json")
         pv_idx, num_pv = get_pv(truncation_file)
         bindings = gin_bindings + ["truncation.pv_idx = {}".format(pv_idx), "truncation.num_pv = {}".format(num_pv)]
-        print("Computing truncated unsupervised metrics of {} using {} representation"
-              .format(path.parent.parent, representation))
+        logger.info("Computing truncated unsupervised metrics of {} using {} representation"
+                    .format(path.parent.parent, representation))
         evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=bindings)
 
 
@@ -167,6 +167,6 @@ def compute_normalized_unsupervised_metrics(base_path, representation, overwrite
     for path in model_paths:
         path = pathlib.Path(path)
         result_path = path.parent.parent / "metrics" / representation / "normalized_unsupervised"
-        print("Computing normalized unsupervised metrics of {} using {} representation"
-              .format(path.parent.parent, representation))
+        logger.info("Computing normalized unsupervised metrics of {} using {} representation"
+                    .format(path.parent.parent, representation))
         evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)

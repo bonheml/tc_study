@@ -1,11 +1,15 @@
 import pathlib
 import gin
 import numpy as np
+import pandas as pd
+from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 from disentanglement_lib.evaluation.metrics.downstream_task import _compute_loss
-from tc_study.truncation_experiment import utils
+from tc_study.truncation_experiment import utils, logger
 from tc_study.truncation_experiment.utils import get_pv
+
+configs = get_config()
 
 
 @gin.configurable("truncated_downstream_task",
@@ -78,18 +82,21 @@ def compute_truncated_downstream_task(base_path, representation, predictor="logi
         "truncation.truncation_fn = @vp_truncation",
         "predictor.predictor_fn = @{}".format(predictor),
     ]
-    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in range(10800)]
+    df = pd.DataFrame(configs)
+    # Remove dip-vae-i models from the models to evaluate
+    to_process = set(range(484, 10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
     res_folder = "logistic_regression" if predictor.startswith("logistic_regression") else "boosted_trees"
 
     for path in model_paths:
         path = pathlib.Path(path)
-        result_path = path.parent.parent / "metrics" / representation / "downstream_task_{}".format(res_folder)
+        result_path = path.parent.parent / "metrics" / representation / "truncated_downstream_task_{}".format(res_folder)
         truncation_file = (path.parent.parent / "metrics" / "mean" / "passive_variables" / "results" / "aggregate"
                            / "evaluation.json")
         pv_idx, num_pv = get_pv(truncation_file)
         bindings = gin_bindings + ["truncation.pv_idx = {}".format(pv_idx), "truncation.num_pv = {}".format(num_pv)]
-        print("Computing truncated downstream tasks of {} using {} representation and {} predictor"
-              .format(path.parent.parent, representation, predictor))
+        logger.info("Computing truncated downstream tasks of {} using {} representation and {} predictor"
+                    .format(path.parent.parent, representation, predictor))
         evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=bindings)
 
 
@@ -113,11 +120,14 @@ def compute_downstream_task(base_path, representation, predictor="logistic_regre
         "evaluation.name = 'downstream task'",
         "predictor.predictor_fn = @{}".format(predictor),
     ]
-    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in range(10800)]
+    df = pd.DataFrame(configs)
+    to_process = set(range(337, 10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
     res_folder = "logistic_regression" if predictor.startswith("logistic_regression") else "boosted_trees"
 
     for i, path in enumerate(model_paths):
         path = pathlib.Path(path)
         result_path = path.parent.parent / "metrics" / representation / "downstream_task_{}".format(res_folder)
-        print("{}/10800 Computing {} using {} representation".format(i, predictor, representation))
+        logger.info("Computing downstream tasks of {} using {} representation and {} predictor"
+                    .format(path.parent.parent, representation, predictor))
         evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)
