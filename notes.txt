@@ -1,5 +1,0 @@
-find /media/bonheml/phd_data/VAE_trained_models -mindepth 1 -maxdepth 1 -type d '!' -exec test -e "{}/metrics/sampled/normalized_unsupervised" ';' -print
-with open("error.log") as f:
-	res = f.read()
-[int(r) for r in res.replace("\n", "").split("/") if r.isdigit()]
-
