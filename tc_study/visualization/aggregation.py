@@ -1,6 +1,20 @@
-from disentanglement_lib.utils import aggregate_results
+import multiprocessing
+from disentanglement_lib.utils.aggregate_results import _load
+from tensorflow._api.v1.compat.v1 import gfile
+import pandas as pd
 from tc_study.utils.models import get_model_info
-from tc_study.utils.string_manipulation import remove_suffix, remove_prefix
+from tc_study.utils.string_manipulation import remove_prefix
+
+
+def get_files(pattern):
+  files = gfile.Glob(pattern)
+  with multiprocessing.Pool() as pool:
+    try:
+        all_results = pool.map(_load, files)
+    except Exception as e:
+        pool.close()
+        raise(e)
+  return pd.DataFrame(all_results)
 
 
 def aggregate_scores(model_info, base_path, representation, metric="normalized_unsupervised"):
@@ -42,7 +56,7 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
     result_file_pattern = ["{}/{}/metrics/{}/{}/results/aggregate/evaluation.json"
                            .format(base_path, i, representation, metric)
                            for i in range(model_info.start_idx, model_info.end_idx + 1)]
-    df = aggregate_results._get(result_file_pattern)
+    df = get_files(result_file_pattern)
     df = df[df.columns.intersection(all_cols.keys())]
     df = df.rename(columns=all_cols, errors="ignore")
     df[["representation", "model", "dataset"]] = df[["representation", "model", "dataset"]].replace({"'": ""},
@@ -65,7 +79,7 @@ def aggregate_all_scores(base_path, out_path):
     models_info = models_info[models_info.dataset != "shapes3d"]
 
     # Removing unused dip-vae-i model
-    models_info = models_info[models_info.model != "dip-vae-i"]
+    models_info = models_info[models_info.model != "dip_vae_i"]
 
     for i, model_info in models_info.iterrows():
         print("Aggregating unsupervised scores of {} on {}".format(model_info.model, model_info.dataset))

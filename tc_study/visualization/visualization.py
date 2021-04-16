@@ -3,6 +3,9 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+sns.set(font_scale=1.5)
+sns.set_style("whitegrid", {'axes.grid' : False, 'legend.labelspacing': 1.2})
+
 
 def save_figure(out_fname, dpi=300):
     plt.savefig(out_fname, dpi=dpi)
@@ -33,7 +36,7 @@ def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlatio
     x_labels = ["beta", "c_max", "gamma", "lambda_od"]
     x_label = list(df.columns.intersection(x_labels))[0]
     g = sns.catplot(data=df, x=x_label, y=y_label, col="truncated", hue="representation", ci=ci, kind="point",
-                    linestyles=["-", "--"], markers=["o", "x"], dodge=True)
+                    linestyles=["-", "--"], markers=["o", "x"], legend_out=False)
     g.set_axis_labels(x_label.replace("_", " ").capitalize(), y_label.replace("_", " ").capitalize())
 
     plt.tight_layout()
@@ -75,7 +78,7 @@ def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None
                   markers=["o", "x"])
 
     ax1.set_xlabel(x_label.replace("_", " ").capitalize())
-    ax1.set_ylabel("Average number of passive variables")
+    ax1.set_ylabel("Passive variables (averaged)")
     ax2.set_ylabel(y_label.replace("_", " ").capitalize())
 
     fig.tight_layout()

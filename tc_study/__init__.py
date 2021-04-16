@@ -1,9 +1,13 @@
+import multiprocessing
 import os
 import PIL
 import scipy.io as sio
 import numpy as np
-
+import pandas as pd
 import warnings
+
+
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 from tensorflow import gfile
@@ -14,6 +18,8 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from disentanglement_lib.data.ground_truth.cars3d import CARS3D_PATH
 from disentanglement_lib.data.ground_truth.dsprites import DSprites, SCREAM_PATH
 from disentanglement_lib.data.ground_truth import dsprites, cars3d
+from disentanglement_lib.utils import aggregate_results
+from disentanglement_lib.utils.aggregate_results import _load
 
 
 # Monkey patch issues with thumbnail for ScreamDSprites and cars3D
@@ -47,3 +53,19 @@ def _load_mesh(filename):
 
 
 cars3d._load_mesh = _load_mesh
+
+
+def _get(pattern):
+  files = gfile.Glob(pattern)
+  with multiprocessing.Pool() as pool:
+    try:
+        all_results = pool.map(_load, files)
+    except Exception as e:
+        pool.close()
+        raise(e)
+  return pd.DataFrame(all_results)
+
+# Monkey patch _get to make sure that pool are closed the result is returned
+
+aggregate_results._get = _get
+

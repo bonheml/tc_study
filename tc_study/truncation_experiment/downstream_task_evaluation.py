@@ -84,7 +84,7 @@ def compute_truncated_downstream_task(base_path, representation, predictor="logi
     ]
     df = pd.DataFrame(configs)
     # Remove dip-vae-i models from the models to evaluate
-    to_process = set(range(484, 10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
     model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
     res_folder = "logistic_regression" if predictor.startswith("logistic_regression") else "boosted_trees"
 
@@ -121,7 +121,7 @@ def compute_downstream_task(base_path, representation, predictor="logistic_regre
         "predictor.predictor_fn = @{}".format(predictor),
     ]
     df = pd.DataFrame(configs)
-    to_process = set(range(337, 10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
     model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
     res_folder = "logistic_regression" if predictor.startswith("logistic_regression") else "boosted_trees"
 
