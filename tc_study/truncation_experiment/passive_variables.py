@@ -1,9 +1,11 @@
 import gin
 import numpy as np
 import pathlib
+
+from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
-
+import pandas as pd
 from tc_study.truncation_experiment import logger
 
 
@@ -60,10 +62,17 @@ def compute_passive_variable_indexes(base_path, overwrite=True):
         "passive_variables_idx.num_train = 10000", "evaluation.random_seed = 2051556033",
         "dataset.name='auto'", "evaluation.name = 'passive variables'"
     ]
-    model_paths = ["{}/{}/postprocessed/mean".format(base_path, i) for i in range(10800)]
+    df = pd.DataFrame(get_config())
+    to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    model_paths = ["{}/{}/postprocessed/mean".format(base_path, i) for i in to_process]
 
     for path in model_paths:
         path = pathlib.Path(path)
         result_path = path.parent.parent / "metrics" / "mean" / "passive_variables"
         logger.info("Computing passive variable indexes of {}".format(path.parent.parent))
-        evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)
+        try:
+            evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)
+        except Exception as e:
+            model_id = str(path.parent.parent).split("/")[-1]
+            logger.error("{}\t{}".format(model_id, e))
+            gin.clear_config()

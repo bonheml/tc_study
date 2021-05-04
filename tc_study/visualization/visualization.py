@@ -3,6 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+
 sns.set(font_scale=1.5)
 sns.set_style("whitegrid", {'axes.grid' : False, 'legend.labelspacing': 1.2})
 
@@ -33,21 +34,39 @@ def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlatio
         out_fname = "{}/truncated_{}_{}_{}_sd_plot.pdf".format(out_path, y_label, model, dataset)
     else:
         out_fname = "{}/truncated_{}_{}_{}_plot.pdf".format(out_path, y_label, model, dataset)
-    x_labels = ["beta", "c_max", "gamma", "lambda_od"]
+    x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
     x_label = list(df.columns.intersection(x_labels))[0]
     g = sns.catplot(data=df, x=x_label, y=y_label, col="truncated", hue="representation", ci=ci, kind="point",
-                    linestyles=["-", "--"], markers=["o", "x"], legend_out=False)
+                    linestyles=["-", "--"], markers=["o", "x"], legend_out=False, dodge=False)
     g.set_axis_labels(x_label.replace("_", " ").capitalize(), y_label.replace("_", " ").capitalize())
 
     plt.tight_layout()
     save_figure(out_fname)
 
 
-def draw_all_truncated_scores(in_path, out_path, y_label):
+def draw_agg_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlation"):
+    df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
+    df["truncated"] = df["truncated"].replace([True, False], ["truncated", ""])
+    df["truncated_representation"] = df["representation"] + " " + df["truncated"]
+    x_label = "regularization"
+    g = sns.FacetGrid(df, col="dataset", row="model", margin_titles=True)
+    g.map_dataframe(sns.lineplot, x=x_label, y=y_label, hue="truncated_representation")
+    g.set_axis_labels("Regularization", y_label.replace("_", " "))
+    g.set_titles(col_template="{col_name}", row_template="{row_name}")
+    out_fname = "{}/truncated_{}_agg_plot.pdf".format(out_path, y_label)
+    plt.tight_layout()
+    save_figure(out_fname)
+
+
+def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="global_results.tsv"):
+    in_path = in_path.rstrip("/")
+    glob_file = "{}/{}".format(in_path, global_res_file)
     all_files = glob.glob("{}/*.tsv".format(in_path))
+    all_files.remove(glob_file)
     for file in all_files:
         draw_truncated_scores(file, out_path, y_label)
         draw_truncated_scores(file, out_path, y_label, ci="sd")
+    # draw_agg_truncated_scores(glob_file, out_path, y_label)
 
 
 def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
@@ -68,7 +87,7 @@ def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None
         out_fname = "{}/passive_variables_{}_{}_{}_sd_plot.pdf".format(out_path, y_label, model, dataset)
     else:
         out_fname = "{}/passive_variables_{}_{}_{}_plot.pdf".format(out_path, y_label, model, dataset)
-    x_labels = ["beta", "c_max", "gamma", "lambda_od"]
+    x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
     x_label = list(df.columns.intersection(x_labels))[0]
     fig, ax1 = plt.subplots()
 
@@ -86,8 +105,10 @@ def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None
     save_figure(out_fname)
 
 
-def draw_all_tc_vp(in_path, out_path, y_label):
+def draw_all_tc_vp(in_path, out_path, y_label, global_res_file="global_results.tsv"):
+    glob_file = "{}/{}".format(in_path, global_res_file)
     all_files = glob.glob("{}/*.tsv".format(in_path))
+    all_files.remove(glob_file)
     for file in all_files:
         draw_tc_vp(file, out_path, y_label)
         draw_tc_vp(file, out_path, y_label, ci="sd")
@@ -113,7 +134,7 @@ def draw_downstream_task_reg(in_fname, out_path, metric="gaussian_total_correlat
                                                     representation)
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
-    x_labels = ["beta", "c_max", "gamma", "lambda_od"]
+    x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
     x_label = list(df.columns.intersection(x_labels))[0]
     sns.pointplot(data=df, x=x_label, y=metric, ax=ax1)
     sns.pointplot(data=df, x=x_label, lines="---", y=ds_task, ax=ax2)
@@ -125,7 +146,9 @@ def draw_downstream_task_reg(in_fname, out_path, metric="gaussian_total_correlat
     save_figure(out_fname)
 
 
-def draw_all_downstream_task_reg(in_path, out_path):
+def draw_all_downstream_task_reg(in_path, out_path, global_res_file="global_results.tsv"):
+    glob_file = "{}/{}".format(in_path, global_res_file)
     all_files = glob.glob("{}/*.tsv".format(in_path))
+    all_files.remove(glob_file)
     for file in all_files:
         draw_downstream_task_reg(file, out_path)

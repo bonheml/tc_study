@@ -97,7 +97,12 @@ def compute_truncated_downstream_task(base_path, representation, predictor="logi
         bindings = gin_bindings + ["truncation.pv_idx = {}".format(pv_idx), "truncation.num_pv = {}".format(num_pv)]
         logger.info("Computing truncated downstream tasks of {} using {} representation and {} predictor"
                     .format(path.parent.parent, representation, predictor))
-        evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=bindings)
+        try:
+            evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=bindings)
+        except Exception as e:
+            model_id = str(path.parent.parent).split("/")[-1]
+            logger.error("{}\t{}".format(model_id, e))
+            gin.clear_config()
 
 
 def compute_downstream_task(base_path, representation, predictor="logistic_regression_cv", overwrite=True):
@@ -130,4 +135,9 @@ def compute_downstream_task(base_path, representation, predictor="logistic_regre
         result_path = path.parent.parent / "metrics" / representation / "downstream_task_{}".format(res_folder)
         logger.info("Computing downstream tasks of {} using {} representation and {} predictor"
                     .format(path.parent.parent, representation, predictor))
-        evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)
+        try:
+            evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)
+        except Exception as e:
+            model_id = str(path.parent.parent).split("/")[-1]
+            logger.error("{}\t{}".format(model_id, e))
+            gin.clear_config()

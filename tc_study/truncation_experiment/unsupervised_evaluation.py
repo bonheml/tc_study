@@ -1,3 +1,5 @@
+from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
+
 from tc_study.truncation_experiment import utils, logger
 import pathlib
 import gin
@@ -5,9 +7,10 @@ import numpy as np
 from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 from disentanglement_lib.evaluation.metrics import unsupervised_metrics as dlib_unsupervised_metrics
-
+import pandas as pd
 from tc_study.truncation_experiment.utils import get_pv, discrete_normalized_mutual_info, discrete_adjusted_mutual_info
 
+configs = get_config()
 
 def unsupervised_metrics(mus_train):
     """Computes unsupervised scores based on covariance and mutual information along with normalised versions.
@@ -133,7 +136,9 @@ def compute_truncated_unsupervised_metrics(base_path, representation, overwrite=
         "discretizer.num_bins = 20", "evaluation.name = 'truncated unsupervised metrics'",
         "truncation.truncation_fn = @vp_truncation"
     ]
-    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in range(10800)]
+    df = pd.DataFrame(configs)
+    to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
 
     for path in model_paths:
         path = pathlib.Path(path)
@@ -144,7 +149,12 @@ def compute_truncated_unsupervised_metrics(base_path, representation, overwrite=
         bindings = gin_bindings + ["truncation.pv_idx = {}".format(pv_idx), "truncation.num_pv = {}".format(num_pv)]
         logger.info("Computing truncated unsupervised metrics of {} using {} representation"
                     .format(path.parent.parent, representation))
-        evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=bindings)
+        try:
+            evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=bindings)
+        except Exception as e:
+            model_id = str(path.parent.parent).split("/")[-1]
+            logger.error("{}\t{}".format(model_id, e))
+            gin.clear_config()
 
 
 def compute_normalized_unsupervised_metrics(base_path, representation, overwrite=True):
@@ -162,11 +172,18 @@ def compute_normalized_unsupervised_metrics(base_path, representation, overwrite
         "dataset.name='auto'", "discretizer.discretizer_fn = @histogram_discretizer",
         "discretizer.num_bins = 20", "evaluation.name = 'normalized unsupervised metrics'"
     ]
-    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in range(10800)]
+    df = pd.DataFrame(configs)
+    to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
 
     for path in model_paths:
         path = pathlib.Path(path)
         result_path = path.parent.parent / "metrics" / representation / "normalized_unsupervised"
         logger.info("Computing normalized unsupervised metrics of {} using {} representation"
                     .format(path.parent.parent, representation))
-        evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)
+        try:
+            evaluate.evaluate_with_gin(str(path), str(result_path), overwrite=overwrite, gin_bindings=gin_bindings)
+        except Exception as e:
+            model_id = str(path.parent.parent).split("/")[-1]
+            logger.error("{}\t{}".format(model_id, e))
+            gin.clear_config()

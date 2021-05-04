@@ -1,6 +1,8 @@
 from functools import partial
-from multiprocessing import get_context, Pool
+from multiprocessing import Pool
 import pathlib
+import pandas as pd
+from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 from disentanglement_lib.evaluation import evaluate
 import tensorflow as tf
 from tc_study.truncation_experiment import logger
@@ -29,7 +31,9 @@ def compute_passive_variable_index_mp(path, overwrite):
 
 
 def compute_passive_variable_indexes_mp(base_path, overwrite=True, nb_proc=3):
-    model_paths = ["{}/{}/postprocessed/mean".format(base_path, i) for i in range(10800)]
+    df = pd.DataFrame(get_config())
+    to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list())
+    model_paths = ["{}/{}/postprocessed/mean".format(base_path, i) for i in to_process]
     f = partial(compute_passive_variable_index_mp, overwrite=overwrite)
     with Pool(processes=nb_proc) as pool:
         pool.map(f, model_paths)

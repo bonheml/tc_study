@@ -4,7 +4,7 @@ from tensorflow._api.v1.compat.v1 import gfile
 import pandas as pd
 from tc_study.utils.models import get_model_info
 from tc_study.utils.string_manipulation import remove_prefix
-
+import numpy as np
 
 def get_files(pattern):
   files = gfile.Glob(pattern)
@@ -47,7 +47,7 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
                "train_config.model.name": "model"}
 
     model_params = {"train_config.dip_vae.lambda_od": "lambda_od",
-                    "train_config.beta_tc_vae.beta": "beta",
+                    "train_config.beta_tc_vae.beta": "tc_beta",
                     "train_config.factor_vae.gamma": "gamma",
                     "train_config.annealed_vae.c_max": "c_max",
                     "train_config.vae.beta": "beta"}
@@ -61,6 +61,17 @@ def aggregate_scores(model_info, base_path, representation, metric="normalized_u
     df = df.rename(columns=all_cols, errors="ignore")
     df[["representation", "model", "dataset"]] = df[["representation", "model", "dataset"]].replace({"'": ""},
                                                                                                     regex=True)
+    return df
+
+
+def get_aggregated_version(df_list):
+    model_params = ["lambda_od", "beta", "gamma", "c_max", "tc_beta"]
+    norm_scores = np.linspace(0, 1, 6)
+    df = pd.concat(df_list)
+    df["regularization"] = np.nan
+    for p in model_params:
+        df[p] = df[p].replace(df[p].dropna().unique(), norm_scores)
+        df["regularization"] = df["regularization"].fillna(df[p])
     return df
 
 
@@ -80,6 +91,7 @@ def aggregate_all_scores(base_path, out_path):
 
     # Removing unused dip-vae-i model
     models_info = models_info[models_info.model != "dip_vae_i"]
+    df_list = []
 
     for i, model_info in models_info.iterrows():
         print("Aggregating unsupervised scores of {} on {}".format(model_info.model, model_info.dataset))
@@ -101,7 +113,10 @@ def aggregate_all_scores(base_path, out_path):
         df2["truncated"] = True
         df = df.append(df2, ignore_index=True)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
-        del df, df2
+        df_list.append(df)
+        del pv, df2
+    main_df = get_aggregated_version(df_list)
+    main_df.to_csv("{}/global_results.tsv".format(out_path), sep="\t", index=False)
 
 
 
