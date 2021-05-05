@@ -6,7 +6,7 @@ from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 import pandas as pd
-from tc_study.truncation_experiment import logger
+from tc_study.experiment import logger
 
 
 @gin.configurable(

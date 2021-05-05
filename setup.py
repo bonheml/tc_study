@@ -11,7 +11,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     scripts=[
-        'bin/tcs_truncation_experiment',
+        'bin/tcs_experiment',
         'bin/tcs_aggregate_results',
         'bin/tcs_visualize_results',
         'bin/tcs_download'

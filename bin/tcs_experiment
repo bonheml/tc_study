@@ -1,12 +1,13 @@
 import argparse
-from tc_study.truncation_experiment.downstream_task_evaluation import compute_downstream_task, \
+from tc_study.experiment.downstream_task_evaluation import compute_downstream_task, \
     compute_truncated_downstream_task
-from tc_study.truncation_experiment.unsupervised_evaluation import compute_truncated_unsupervised_metrics, \
+from tc_study.experiment.unsupervised_evaluation import compute_truncated_unsupervised_metrics, \
     compute_normalized_unsupervised_metrics
-from tc_study.truncation_experiment.unsupervised_evaluation_mp import compute_normalized_unsupervised_metrics_mp, \
+from tc_study.experiment.unsupervised_evaluation_mp import compute_normalized_unsupervised_metrics_mp, \
     compute_truncated_unsupervised_metrics_mp
-from tc_study.truncation_experiment.passive_variables import compute_passive_variable_indexes
-from tc_study.truncation_experiment.passive_variables_mp import compute_passive_variable_indexes_mp
+from tc_study.experiment.passive_variables import compute_passive_variable_indexes
+from tc_study.experiment.synthetic_unsupervised_evaluation import compare_metrics
+from tc_study.experiment.passive_variables_mp import compute_passive_variable_indexes_mp
 
 
 def compute_passive_variables(args):
@@ -48,8 +49,12 @@ def compute_downstream_tasks(args):
                                 overwrite=args.overwrite)
 
 
+def compute_synthetic_eval(args):
+    corr_min, corr_max = sorted(args.corr)
+    compare_metrics(args.size, args.active_variables, corr_min=corr_min, corr_max=corr_max)
+
+
 if __name__ == "__main__":
-    # "/media/bonheml/phd_data/VAE_trained_models"
     parser = argparse.ArgumentParser(description="Reproduce truncation experiment using dislib pre-trained VAE models")
     subparsers = parser.add_subparsers()
 
@@ -59,7 +64,13 @@ if __name__ == "__main__":
     pv.add_argument("--multiprocess", "-m", nargs='?', const=4, type=int, help="UNSTABLE: Performs distributed computation")
     pv.set_defaults(func=compute_passive_variables)
 
-    um = subparsers.add_parser("unsupervised_metrics", aliases=["um", "metrics"])
+    mc = subparsers.add_parser("metrics_comparison", aliases=["mc"])
+    mc.add_argument("size", type=int, help="Dimensionality of the latent representation")
+    mc.add_argument("active_variables", type=int, help="Number of active variables")
+    mc.add_argument("--corr", type=float, nargs=2, help="Correlation range between active variables")
+    mc.set_defaults(func=compute_synthetic_eval)
+
+    um = subparsers.add_parser("unsupervised_metrics", aliases=["um"])
     um.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
     um.add_argument("representation", type=str, choices=["mean", "sampled"],
                     help="Representation from which we need to compute unsupervised scores")

@@ -5,7 +5,7 @@ import pandas as pd
 from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 from disentanglement_lib.evaluation import evaluate
 import tensorflow as tf
-from tc_study.truncation_experiment import logger
+from tc_study.experiment import logger
 from tc_study.utils.tf_config import set_cpu_option
 
 
@@ -13,7 +13,7 @@ def compute_passive_variable_index_mp(path, overwrite):
     tf.keras.backend.clear_session()
     set_cpu_option()
     import gin
-    from tc_study.truncation_experiment.passive_variables import passive_variables_indexes
+    from tc_study.experiment.passive_variables import passive_variables_indexes
     gin_bindings = [
         "evaluation.evaluation_fn =  @passive_variables_idx",
         "passive_variables_idx.num_train = 10000", "evaluation.random_seed = 2051556033",

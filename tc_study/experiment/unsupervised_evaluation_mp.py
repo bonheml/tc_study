@@ -5,14 +5,14 @@ import pandas as pd
 from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 from disentanglement_lib.evaluation import evaluate
 import gin
-from tc_study.truncation_experiment import logger
-from tc_study.truncation_experiment.utils import get_pv
+from tc_study.experiment import logger
+from tc_study.experiment.utils import get_pv
 from tc_study.utils.tf_config import set_cpu_option
 
 
 def compute_truncated_unsupervised_metric_mp(path, representation, overwrite=True):
     set_cpu_option()
-    from tc_study.truncation_experiment.unsupervised_evaluation import truncated_unsupervised_metrics
+    from tc_study.experiment.unsupervised_evaluation import truncated_unsupervised_metrics
     gin_bindings = [
         "evaluation.evaluation_fn = @truncated_unsupervised_metrics",
         "truncated_unsupervised_metrics.num_train = 10000",
@@ -46,7 +46,7 @@ def compute_truncated_unsupervised_metrics_mp(base_path, representation, overwri
 
 def compute_normalized_unsupervised_metric_mp(path, representation, overwrite=True):
     set_cpu_option()
-    from tc_study.truncation_experiment.unsupervised_evaluation import normalized_unsupervised_metrics
+    from tc_study.experiment.unsupervised_evaluation import normalized_unsupervised_metrics
     gin_bindings = [
         "evaluation.evaluation_fn = @normalized_unsupervised_metrics",
         "normalized_unsupervised_metrics.num_train = 10000",

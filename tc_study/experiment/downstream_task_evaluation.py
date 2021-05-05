@@ -6,8 +6,8 @@ from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 from disentanglement_lib.evaluation.metrics.downstream_task import _compute_loss
-from tc_study.truncation_experiment import utils, logger
-from tc_study.truncation_experiment.utils import get_pv
+from tc_study.experiment import utils, logger
+from tc_study.experiment.utils import get_pv
 
 configs = get_config()
 

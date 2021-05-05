@@ -1,6 +1,6 @@
 from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 
-from tc_study.truncation_experiment import utils, logger
+from tc_study.experiment import utils, logger
 import pathlib
 import gin
 import numpy as np
@@ -8,7 +8,7 @@ from disentanglement_lib.evaluation import evaluate
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 from disentanglement_lib.evaluation.metrics import unsupervised_metrics as dlib_unsupervised_metrics
 import pandas as pd
-from tc_study.truncation_experiment.utils import get_pv, discrete_normalized_mutual_info, discrete_adjusted_mutual_info
+from tc_study.experiment.utils import get_pv, discrete_normalized_mutual_info, discrete_adjusted_mutual_info
 
 configs = get_config()
 

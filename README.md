@@ -24,38 +24,38 @@ the dataset.
 ### Computing the passive variables using:
 **This needs to be done first** as other parts of the experiment relies on these results.
 ```bash
-tcs_truncation_experiment pv <model_path>
+tcs_experiment pv <model_path>
 ```
 where `<model_path>` is the absolute path to the folder where you have downloaded the models.
 
 ### Computing unsupervised scores
 You can reproduce the unsupervised metrics scores with
 ```bash
-tcs_truncation_experiment um <model_path> {mean,sampled} [--truncate][--overwrite]
+tcs_experiment um <model_path> {mean,sampled} [--truncate][--overwrite]
 ```
 For example, to reproduce the complete experiment:
 ```bash
-tcs_truncation_experiment um <model_path> mean
-tcs_truncation_experiment um <model_path> mean -t
-tcs_truncation_experiment um <model_path> sampled
-tcs_truncation_experiment um <model_path> sampled -t
+tcs_experiment um <model_path> mean
+tcs_experiment um <model_path> mean -t
+tcs_experiment um <model_path> sampled
+tcs_experiment um <model_path> sampled -t
 ```
 
 ### Computing downstream tasks
 You can reproduce the downstream tasks results with
 ```bash
-tcs_truncation_experiment dt <model_path> {mean,sampled} {logistic_regression_cv,gradient_boosting_classifier} [--truncate][--overwrite]
+tcs_experiment dt <model_path> {mean,sampled} {logistic_regression_cv,gradient_boosting_classifier} [--truncate][--overwrite]
 ```
 For example, to reproduce the complete experiment:
 ```bash
-tcs_truncation_experiment dt <model_path> mean logistic_regression_cv
-tcs_truncation_experiment dt <model_path> mean logistic_regression_cv -t
-tcs_truncation_experiment dt <model_path> sampled logistic_regression_cv
-tcs_truncation_experiment dt <model_path> sampled logistic_regression_cv -t
-tcs_truncation_experiment dt <model_path> mean gradient_boosting_classifier
-tcs_truncation_experiment dt <model_path> mean gradient_boosting_classifier -t
-tcs_truncation_experiment dt <model_path> sampled gradient_boosting_classifier
-tcs_truncation_experiment dt <model_path> sampled gradient_boosting_classifier -t
+tcs_experiment dt <model_path> mean logistic_regression_cv
+tcs_experiment dt <model_path> mean logistic_regression_cv -t
+tcs_experiment dt <model_path> sampled logistic_regression_cv
+tcs_experiment dt <model_path> sampled logistic_regression_cv -t
+tcs_experiment dt <model_path> mean gradient_boosting_classifier
+tcs_experiment dt <model_path> mean gradient_boosting_classifier -t
+tcs_experiment dt <model_path> sampled gradient_boosting_classifier
+tcs_experiment dt <model_path> sampled gradient_boosting_classifier -t
 ```
 
 ### Aggregating the results
