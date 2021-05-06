@@ -56,20 +56,20 @@ def discrete_averaged_mi(samples):
     return discrete_mi_avg
 
 
-def generate_cov_mat(factors, active_variables, corr_min, corr_max):
+def generate_cov_mat(factors, active_variables, cov_min, cov_max):
     """ Generate synthetic covariance matrices for mean and sampled representations, where the only difference between
     the two is that passive variables have a variance of 1 in sampled representations and of 0.02 in mean ones.
-    Active variable have correlation scores randomly picked in (corr_min, corr_max) range.
+    Active variable have covariance scores randomly picked in (cov_min, cov_max) range.
     
     :param factors: dimensionality of the latent representation
     :param active_variables: number of active variables
-    :param corr_min: minimum correlation between active variables
-    :param corr_max: maximum correlation between active variables
+    :param cov_min: minimum covariance between active variables
+    :param cov_max: maximum covariance between active variables
     :return: mean and sampled covariance matrices
     """
     cov_m = np.zeros([factors, factors])
-    range_size = (corr_max - corr_min)
-    a_corr = np.random.rand((active_variables * (active_variables - 1)) // 2) * range_size + corr_min
+    range_size = (cov_max - cov_min)
+    a_corr = np.random.rand((active_variables * (active_variables - 1)) // 2) * range_size + cov_min
 
     for i in range(factors):
         var = 1 if i < active_variables else 0.02
@@ -85,36 +85,36 @@ def generate_cov_mat(factors, active_variables, corr_min, corr_max):
     return cov_m, cov_s
 
 
-def compare_metrics(factors, active_vars, corr_min=0.2, corr_max=0.2):
+def compare_metrics(factors, active_vars, cov_min=0.2, cov_max=0.2, noise_strength=0.02):
     """ Generate synthetic data from gaussian distributions emulating mean and variance representations with varying
     number of factors and active variables.
 
     :param factors: dimensionality of the latent representation
     :param active_vars: number of active variables
-    :param corr_min: minimum correlation between active variables
-    :param corr_max: maximum correlation between active variables
+    :param cov_min: minimum covariance between active variables
+    :param cov_max: maximum covariance between active variables
     :return: None
     """
-    if factors < active_vars or active_vars < 0 or factors <= 0:
-        raise ValueError("The number of active variable must be lower or equal to the total number of variables and "
-                         "both values must be positive.")
-
     # Using the same seed and number of sample as in Locatello et al. experiment
     np.random.seed(2051556033)
     n = 10000
     mu = np.repeat(0, factors)
+    samples = []
 
-    cov_m, cov_s = generate_cov_mat(factors, active_vars, corr_min, corr_max)
-    samples_m, samples_s = np.random.multivariate_normal(mu, cov_m, n).T, np.random.multivariate_normal(mu, cov_s, n).T
-    cov_m, cov_s = np.cov(samples_m), np.cov(samples_s)
+    cov_m, cov_s = generate_cov_mat(factors, active_vars, cov_min, cov_max)
+    samples += np.random.multivariate_normal(mu, cov_m, n).T, np.random.multivariate_normal(mu, cov_s, n).T
+    sigma = np.diag([noise_strength if i < active_vars else 1 for i in range(factors)])
+    samples_n = np.random.multivariate_normal(mu, np.identity(factors), n)
+    samples.append(samples[0] + np.dot(samples_n, sigma).T)
+    covs = [np.cov(s) for s in samples]
+    tcs = [dlib_unsupervised_metrics.gaussian_total_correlation(cov) for cov in covs]
+    mis = [averaged_mi(cov) for cov in covs]
+    dmis = [discrete_averaged_mi(discretize(s)) for s in samples]
+    wds = [dlib_unsupervised_metrics.gaussian_wasserstein_correlation(cov) for cov in covs]
 
-    print("{:<20} {:<15} {:<15}".format("Representation", "Mean", "Sampled"))
-    print('{:-^50}'.format(""))
-    print("{:<20} {:<15f} {:<15f}".format("TC", dlib_unsupervised_metrics.gaussian_total_correlation(cov_m),
-                                          dlib_unsupervised_metrics.gaussian_total_correlation(cov_s)))
-    print("{:<20} {:<15f} {:<15f}".format("Avg MI", averaged_mi(cov_m), averaged_mi(cov_s)))
-    print("{:<20} {:<15f} {:<15f}".format("Discrete avg MI", discrete_averaged_mi(discretize(samples_m)),
-                                          discrete_averaged_mi(discretize(samples_s))))
-    print("{:<20} {:<15f} {:<15f}".format("L2-Wasserstein",
-                                          dlib_unsupervised_metrics.gaussian_wasserstein_correlation(cov_m),
-                                          dlib_unsupervised_metrics.gaussian_wasserstein_correlation(cov_s)))
+    print("{:<20} {:<15} {:<15} {:<15}".format("Representation", "Mean", "Sampled_c", "Sampled_m"))
+    print('{:-^65}'.format(""))
+    print("{:<20} {:<15f} {:<15f} {:<15f}".format("TC", *tcs))
+    print("{:<20} {:<15f} {:<15f} {:<15f}".format("Avg MI", *mis))
+    print("{:<20} {:<15f} {:<15f} {:<15f}".format("Discrete avg MI", *dmis))
+    print("{:<20} {:<15f} {:<15f} {:<15f}".format("L2-Wasserstein", *wds))

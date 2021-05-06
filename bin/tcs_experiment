@@ -50,8 +50,13 @@ def compute_downstream_tasks(args):
 
 
 def compute_synthetic_eval(args):
-    corr_min, corr_max = sorted(args.corr)
-    compare_metrics(args.size, args.active_variables, corr_min=corr_min, corr_max=corr_max)
+    if args.size < args.active_variables or args.active_variables < 0 or args.size <= 0:
+        raise ValueError("The number of active variable must be lower or equal to the total number of variables and "
+                         "both values must be positive.")
+    if args.noise < 0:
+        raise ValueError("Noise must be positive")
+    cov_min, cov_max = sorted(args.cov)
+    compare_metrics(args.size, args.active_variables, cov_min=cov_min, cov_max=cov_max, noise_strength=args.noise)
 
 
 if __name__ == "__main__":
@@ -67,7 +72,8 @@ if __name__ == "__main__":
     mc = subparsers.add_parser("metrics_comparison", aliases=["mc"])
     mc.add_argument("size", type=int, help="Dimensionality of the latent representation")
     mc.add_argument("active_variables", type=int, help="Number of active variables")
-    mc.add_argument("--corr", type=float, nargs=2, help="Correlation range between active variables")
+    mc.add_argument("--cov", "-c", type=float, nargs=2, help="Covariance range between active variables")
+    mc.add_argument("--noise", "-n", type=float, help="Noise strength for active variables sampling")
     mc.set_defaults(func=compute_synthetic_eval)
 
     um = subparsers.add_parser("unsupervised_metrics", aliases=["um"])
