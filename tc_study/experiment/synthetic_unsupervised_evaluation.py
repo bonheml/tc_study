@@ -1,3 +1,6 @@
+import pandas as pd
+from pathlib import Path
+
 import numpy as np
 from disentanglement_lib.evaluation.metrics import utils as dlib_utils
 from disentanglement_lib.evaluation.metrics import unsupervised_metrics as dlib_unsupervised_metrics
@@ -85,21 +88,39 @@ def generate_cov_mat(factors, active_variables, cov_min, cov_max):
     return cov_m, cov_s
 
 
-def compare_metrics(factors, active_vars, cov_min=0.2, cov_max=0.2, noise_strength=0.02):
+def print_results(scores):
+    l = len(scores)
+    truncated = "Truncated" if scores[0]["truncated"] is True else "Full"
+    scores_str = "{:<20} {:<15f} {:<15f} {:<15f}"
+    print("{} representations - active variables: {}".format(truncated, scores[0]["active_variables"]))
+    print("{:<20} {:<15} {:<15} {:<15}".format("Representation", *[scores[i]["representation"] for i in range(l)]))
+    print('{:-^65}'.format(""))
+    print(scores_str.format("TC", *[scores[i]["gaussian_total_correlation"] for i in range(l)]))
+    print(scores_str.format("Avg MI", *[scores[i]["continuous_mutual_info_score"] for i in range(l)]))
+    print(scores_str.format("Discrete avg MI", *[scores[i]["discrete_mutual_info_score"] for i in range(l)]))
+    print(scores_str.format("L2-Wasserstein", *[scores[i]["gaussian_wasserstein_correlation"] for i in range(l)]))
+    print()
+
+
+def compare_metrics(factors, active_vars, truncated=False, cov_min=0.2, cov_max=0.2, noise_strength=0.02, verbose=False):
     """ Generate synthetic data from gaussian distributions emulating mean and variance representations with varying
     number of factors and active variables.
 
     :param factors: dimensionality of the latent representation
     :param active_vars: number of active variables
+    :param truncated: False if not truncated, true otherwise
     :param cov_min: minimum covariance between active variables
     :param cov_max: maximum covariance between active variables
-    :return: None
+    :param noise_strength: The noise applied to active variables sampled from mean representations
+    :param verbose: If true, print the result, else execute silently
+    :return: list of dict of scores
     """
     # Using the same seed and number of sample as in Locatello et al. experiment
     np.random.seed(2051556033)
     n = 10000
     mu = np.repeat(0, factors)
     samples = []
+    scores = []
 
     cov_m, cov_s = generate_cov_mat(factors, active_vars, cov_min, cov_max)
     samples += np.random.multivariate_normal(mu, cov_m, n).T, np.random.multivariate_normal(mu, cov_s, n).T
@@ -107,14 +128,50 @@ def compare_metrics(factors, active_vars, cov_min=0.2, cov_max=0.2, noise_streng
     samples_n = np.random.multivariate_normal(mu, np.identity(factors), n)
     samples.append(samples[0] + np.dot(samples_n, sigma).T)
     covs = [np.cov(s) for s in samples]
-    tcs = [dlib_unsupervised_metrics.gaussian_total_correlation(cov) for cov in covs]
-    mis = [averaged_mi(cov) for cov in covs]
-    dmis = [discrete_averaged_mi(discretize(s)) for s in samples]
-    wds = [dlib_unsupervised_metrics.gaussian_wasserstein_correlation(cov) for cov in covs]
 
-    print("{:<20} {:<15} {:<15} {:<15}".format("Representation", "Mean", "Sampled_c", "Sampled_m"))
-    print('{:-^65}'.format(""))
-    print("{:<20} {:<15f} {:<15f} {:<15f}".format("TC", *tcs))
-    print("{:<20} {:<15f} {:<15f} {:<15f}".format("Avg MI", *mis))
-    print("{:<20} {:<15f} {:<15f} {:<15f}".format("Discrete avg MI", *dmis))
-    print("{:<20} {:<15f} {:<15f} {:<15f}".format("L2-Wasserstein", *wds))
+    representations = ["mean", "sampled_c", "sampled_m"]
+    for i, rep in enumerate(representations):
+        cov = covs[i]
+        r = {}
+        r["representation"] = rep
+        r["gaussian_total_correlation"] = dlib_unsupervised_metrics.gaussian_total_correlation(cov)
+        r["continuous_mutual_info_score"] = averaged_mi(cov)
+        r["discrete_mutual_info_score"] = discrete_averaged_mi(discretize(samples[i]))
+        r["gaussian_wasserstein_correlation"] = dlib_unsupervised_metrics.gaussian_wasserstein_correlation(cov)
+        r["active_variables"] = active_vars
+        r["truncated"] = truncated
+        scores.append(r)
+
+    if verbose is True:
+        print_results(scores)
+
+    return scores
+
+
+def all_metrics_comparison(factors, out_path, cov_min=0.2, cov_max=0.2, noise_strength=0.02, verbose=False):
+    """ Generate synthetic data from gaussian distributions emulating mean and variance representations with 0 to
+    <nb_factors> active variables.
+
+    :param factors: dimensionality of the latent representation
+    :param out_path: Folder used to save the results
+    :param cov_min: minimum covariance between active variables
+    :param cov_max: maximum covariance between active variables
+    :param noise_strength: The noise applied to active variables sampled from mean representations
+    :param verbose: If true, print the result, else execute silently
+    :return: None
+    """
+    out_path = Path(out_path).absolute()
+    fname = str(out_path / "cov{}_{}_noise_{}_synthetic.tsv".format(cov_min, cov_max, noise_strength))
+
+    res = []
+    for va in range(factors + 1):
+        res += compare_metrics(factors, va, False, cov_min, cov_max, noise_strength, verbose)
+        if va >= 2:
+            res += compare_metrics(va, va, True, cov_min, cov_max, noise_strength, verbose)
+    df = pd.DataFrame(res)
+    df["num_factors"] = factors
+    df["cov_min"] = cov_min
+    df["cov_max"] = cov_max
+    df["noise_strength"] = noise_strength
+    df.to_csv(fname, sep="\t", index=False)
+
