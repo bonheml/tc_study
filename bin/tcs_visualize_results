@@ -1,6 +1,6 @@
 import argparse
 
-from tc_study.visualization.visualization import draw_all_tc_vp, draw_all_downstream_task_reg
+from tc_study.visualization.visualization import draw_all_tc_vp, draw_all_downstream_task_reg, draw_all_synthetic_scores
 from tc_study.visualization.visualization import draw_all_truncated_scores
 
 
@@ -16,11 +16,14 @@ def draw_truncated_scores(args):
     draw_all_truncated_scores(args.data_path, args.output_path, args.metric)
 
 
+def draw_synthetic_scores(args):
+    draw_all_synthetic_scores(args.data_path, args.output_path, args.metric)
+
+
 if __name__ == "__main__":
     # /media/bonheml/phd_data/VAE_TC_study/aggregated_results
     metric_choices = ["gaussian_total_correlation", "gaussian_wasserstein_correlation",
-                      "gaussian_wasserstein_correlation_norm", "mutual_info_score",
-                      "adjusted_mutual_info_score", "norm_mutual_info_score"]
+                      "continuous_mutual_info_score", "discrete_mutual_info_score"]
     parser = argparse.ArgumentParser(description="Reproduce figures from the paper")
     subparsers = parser.add_subparsers()
 
@@ -40,6 +43,12 @@ if __name__ == "__main__":
     ts.add_argument("output_path", type=str, help="Path where the figures will be stored")
     ts.add_argument("metric", type=str, choices=metric_choices, help="Metric to use")
     ts.set_defaults(func=draw_truncated_scores)
+
+    ss = subparsers.add_parser("synthetic_scores", aliases=["ss"])
+    ss.add_argument("data_path", type=str, help="Path where the aggregated results are stored")
+    ss.add_argument("output_path", type=str, help="Path where the figures will be stored")
+    ss.add_argument("metric", type=str, choices=metric_choices, help="Metric to use")
+    ss.set_defaults(func=draw_synthetic_scores)
 
     res = parser.parse_args()
     res.func(res)

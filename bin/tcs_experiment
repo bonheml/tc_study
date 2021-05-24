@@ -9,7 +9,8 @@ from tc_study.experiment.unsupervised_evaluation import compute_truncated_unsupe
 from tc_study.experiment.unsupervised_evaluation_mp import compute_normalized_unsupervised_metrics_mp, \
     compute_truncated_unsupervised_metrics_mp
 from tc_study.experiment.passive_variables import compute_passive_variable_indexes
-from tc_study.experiment.synthetic_unsupervised_evaluation import all_metrics_comparison
+from tc_study.experiment.synthetic_unsupervised_evaluation import gaussian_metrics_comparison, \
+    non_gaussian_metrics_comparison
 from tc_study.experiment.passive_variables_mp import compute_passive_variable_indexes_mp
 
 
@@ -53,8 +54,8 @@ def compute_downstream_tasks(args):
 
 
 def compute_synthetic_eval(args):
-    noises = [0.02, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5] if args.noise is None else [args.noise]
-    covs = [0.2, 0.4, 0.6, 0.8]
+    noises = [0.05, 0.1, 0.2, 0.4, 0.6, 0.8] if args.noise is None else [args.noise]
+    covs = [0.05, 0.1, 0.2, 0.4, 0.6, 0.8]
     covs = list(product(covs, repeat=2)) if args.cov is None else [sorted(args.cov)]
     random_state = np.random.RandomState(0)
     if noises[0] < 0 or args.size <= 0:
@@ -63,9 +64,19 @@ def compute_synthetic_eval(args):
         raise ValueError("out_path must be a directory")
     for cov_min, cov_max in covs:
         for noise in noises:
-            for i in range(50):
-                seed = random_state.randint(2 ** 32)
-                all_metrics_comparison(args.size, args.out_path, seed, cov_min, cov_max, noise, args.verbose)
+            #for i in range(50):
+            seed = random_state.randint(2 ** 32)
+            gaussian_metrics_comparison(args.size, args.out_path, seed, cov_min, cov_max, noise, args.pv_var, args.verbose)
+
+
+def compute_nl_synthetic_eval(args):
+    noises = [0.05, 0.1, 0.2, 0.4, 0.6, 0.8] if args.noise is None else [args.noise]
+    random_state = np.random.RandomState(0)
+    for noise in noises:
+        # for i in range(50):
+        seed = random_state.randint(2 ** 32)
+        non_gaussian_metrics_comparison(args.size, args.out_path, seed, args.tube_radius, args.hole_radius, noise,
+                                        args.pv_var, args.verbose)
 
 
 if __name__ == "__main__":
@@ -78,13 +89,24 @@ if __name__ == "__main__":
     pv.add_argument("--multiprocess", "-m", nargs='?', const=4, type=int, help="UNSTABLE: Performs distributed computation")
     pv.set_defaults(func=compute_passive_variables)
 
-    mc = subparsers.add_parser("metrics_comparison", aliases=["mc"])
+    mc = subparsers.add_parser("linear_metrics_comparison", aliases=["lmc"])
     mc.add_argument("size", type=int, help="Dimensionality of the latent representation")
     mc.add_argument("--out_path", "-p", type=str, default=".", help="Path used to save the results")
     mc.add_argument("--cov", "-c", type=float, nargs=2, help="Covariance range between active variables")
     mc.add_argument("--noise", "-n", type=float, help="Noise strength for active variables sampling")
+    mc.add_argument("--pv_var", "-pv", type=float, help="Variance of passive variables", default=0.02)
     mc.add_argument("--verbose", "-v", action="store_true", help="Print the results")
     mc.set_defaults(func=compute_synthetic_eval)
+
+    nlmc = subparsers.add_parser("non_linear_metrics_comparison", aliases=["nlmc"])
+    nlmc.add_argument("size", type=int, help="Dimensionality of the latent representation")
+    nlmc.add_argument("--out_path", "-p", type=str, default=".", help="Path used to save the results")
+    nlmc.add_argument("--tube_radius", "-tr", type=float, help="Radius of the torus tube", default=3.0)
+    nlmc.add_argument("--hole_radius", "-hr", type=float, help="Radius of the torus hole", default=5.0)
+    nlmc.add_argument("--noise", "-n", type=float, help="Noise strength for active variables sampling")
+    nlmc.add_argument("--pv_var", "-pv", type=float, help="Variance of passive variables", default=0.02)
+    nlmc.add_argument("--verbose", "-v", action="store_true", help="Print the results")
+    nlmc.set_defaults(func=compute_nl_synthetic_eval)
 
     um = subparsers.add_parser("unsupervised_metrics", aliases=["um"])
     um.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")

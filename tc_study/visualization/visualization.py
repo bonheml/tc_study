@@ -2,10 +2,11 @@ import glob
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 
 sns.set(font_scale=1.5)
-sns.set_style("whitegrid", {'axes.grid' : False, 'legend.labelspacing': 1.2})
+sns.set_style("whitegrid", {'axes.grid': False, 'legend.labelspacing': 1.2})
 
 
 def save_figure(out_fname, dpi=300):
@@ -44,6 +45,28 @@ def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlatio
     save_figure(out_fname)
 
 
+def draw_synthetic_scores(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
+    df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
+    if "cov_min" in df.columns.values:
+        params = df.cov_min.unique()[0], df.cov_max.unique()[0]
+        param_name = "cov"
+    else:
+        params = df.tube_radius.unique()[0], df.hole_radius.unique()[0]
+        param_name = "radii"
+    base_fname = "{}/truncated_factors_{}_{}_{}_{}_{}_noise_{}".format(out_path, y_label, df.num_factors.unique()[0],
+                                                                       param_name, params[0], params[1],
+                                                                       df.noise_strength.unique()[0])
+    out_fname = "{}_sd_plot.pdf".format(base_fname) if ci else "{}_plot.pdf".format(base_fname)
+    df["passive_variables"] = df.num_factors - df.active_variables
+
+    g = sns.relplot(data=df, x="passive_variables", y=y_label, col="truncated", hue="representation",
+                    style="representation", kind="line")
+    g.set_axis_labels("Passive variables", y_label.replace("_", " ").capitalize())
+
+    plt.tight_layout()
+    save_figure(out_fname)
+
+
 def draw_agg_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlation"):
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
     df["truncated"] = df["truncated"].replace([True, False], ["truncated", ""])
@@ -65,8 +88,16 @@ def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="globa
     all_files.remove(glob_file)
     for file in all_files:
         draw_truncated_scores(file, out_path, y_label)
-        draw_truncated_scores(file, out_path, y_label, ci="sd")
+        # draw_truncated_scores(file, out_path, y_label, ci="sd")
     # draw_agg_truncated_scores(glob_file, out_path, y_label)
+
+
+def draw_all_synthetic_scores(in_path, out_path, y_label):
+    in_path = in_path.rstrip("/")
+    all_files = glob.glob("{}/*.tsv".format(in_path))
+    for file in all_files:
+        draw_synthetic_scores(file, out_path, y_label)
+        # draw_truncated_scores(file, out_path, y_label, ci="sd")
 
 
 def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
@@ -152,3 +183,25 @@ def draw_all_downstream_task_reg(in_path, out_path, global_res_file="global_resu
     all_files.remove(glob_file)
     for file in all_files:
         draw_downstream_task_reg(file, out_path)
+
+
+def draw_torus(x):
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    ax.scatter(x[0], x[1], x[2])
+    max_range = np.array([x[0].max() - x[0].min(), x[1].max() - x[1].min(), x[2].max() - x[2].min()]).max()
+    Xb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][0].flatten() + 0.5 * (x[0].max() + x[0].min())
+    Yb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][1].flatten() + 0.5 * (x[1].max() + x[1].min())
+    Zb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][2].flatten() + 0.5 * (x[2].max() + x[2].min())
+    for xb, yb, zb in zip(Xb, Yb, Zb):
+        ax.plot([xb], [yb], [zb], 'w')
+    plt.grid()
+    plt.show()
+
+
+def draw_ring(x):
+    fig, ax = plt.subplots()
+    ax.scatter(x[0], x[1])
+    ax.set_aspect('equal', 'box')
+    plt.grid()
+    plt.show()

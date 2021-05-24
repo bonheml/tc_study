@@ -64,9 +64,9 @@ def discrete_averaged_mi(samples):
     return discrete_mi_avg
 
 
-def generate_cov_mat(factors, active_variables, cov_min, cov_max, random_state):
+def generate_cov_mat(factors, active_variables, cov_min, cov_max, random_state, pv_var=0.02):
     """ Generate synthetic covariance matrices for mean and sampled representations, where the only difference between
-    the two is that passive variables have a variance of 1 in sampled representations and of 0.02 in mean ones.
+    the two is that passive variables have a variance of 1 in sampled representations and of pv_var in mean ones.
     Active variable have covariance scores randomly picked in (cov_min, cov_max) range.
     
     :param factors: dimensionality of the latent representation
@@ -74,6 +74,7 @@ def generate_cov_mat(factors, active_variables, cov_min, cov_max, random_state):
     :param cov_min: minimum covariance between active variables
     :param cov_max: maximum covariance between active variables
     :param random_state: np random state used for seeded random generation
+    :param pv_var: passive variables variance
     :return: mean and sampled covariance matrices
     """
     cov_m = np.zeros([factors, factors])
@@ -81,7 +82,7 @@ def generate_cov_mat(factors, active_variables, cov_min, cov_max, random_state):
     a_corr = random_state.rand((active_variables * (active_variables - 1)) // 2) * range_size + cov_min
 
     for i in range(factors):
-        var = 1 if i < active_variables else 0.02
+        var = 1 if i < active_variables else pv_var
         cov_m[i, i] = var
         for j in range(i):
             corr = a_corr[(i + j) - 1] if var == 1 else 0.01
@@ -94,12 +95,13 @@ def generate_cov_mat(factors, active_variables, cov_min, cov_max, random_state):
     return cov_m, cov_s
 
 
-def print_results(scores):
+def print_results(scores, seed):
     l = len(scores)
     truncated = "Truncated" if scores[0]["truncated"] is True else "Full"
-    scores_str = "{:<20} {:<15f} {:<15f} {:<15f}\n"
-    msg = "\n{} representations - active variables: {}\n".format(truncated, scores[0]["active_variables"])
-    msg += "{:<20} {:<15} {:<15} {:<15}\n".format("Representation", *[scores[i]["representation"] for i in range(l)])
+    scores_str = "{:<20} {:<15f} {:<15f}\n"
+
+    msg = "\nSeed {} - {} representations - active variables: {}\n".format(seed, truncated, scores[0]["active_variables"])
+    msg += "{:<20} {:<15} {:<15}\n".format("Representation", *[scores[i]["representation"] for i in range(l)])
     msg += "{:-^65}\n".format("")
     msg += scores_str.format("TC", *[scores[i]["gaussian_total_correlation"] for i in range(l)])
     msg += scores_str.format("Avg MI", *[scores[i]["continuous_mutual_info_score"] for i in range(l)])
@@ -108,7 +110,57 @@ def print_results(scores):
     logger.info(msg)
 
 
-def compare_metrics(factors, active_vars, seed, truncated=False, cov_min=0.2, cov_max=0.2, noise_strength=0.02, verbose=False):
+def generate_gaussian_examples(factors,  active_vars, random_state, cov_min=0.2, cov_max=0.2, noise_strength=0.02,
+                               pv_var=0.02, n=10000):
+    mu = np.repeat(0, factors)
+    samples = []
+
+    cov_m, cov_s = generate_cov_mat(factors, active_vars, cov_min, cov_max, random_state, pv_var)
+    samples += [random_state.multivariate_normal(mu, cov_m, n).T]
+    sigma = np.diag([noise_strength if i < active_vars else 1 for i in range(factors)])
+    samples_n = random_state.multivariate_normal(mu, np.identity(factors), n)
+    samples.append(samples[0] + np.dot(samples_n, sigma).T)
+    covs = [np.cov(s) for s in samples]
+
+    return covs, samples
+
+
+def torus_samples(factors, active_vars, tube_radius, hole_radius, random_state, pv_var=0.02, n=10000):
+    theta = random_state.uniform(0, 2 * np.pi, n)
+    phi = random_state.uniform(0, 2 * np.pi, n)
+    w = (hole_radius + tube_radius * np.cos(theta))
+    res = []
+    for i in range(factors):
+        if i < active_vars:
+            if i % 3 == 0:
+                theta = random_state.uniform(0, 2 * np.pi, n)
+                phi = random_state.uniform(0, 2 * np.pi, n)
+                w = (hole_radius + tube_radius * np.cos(theta))
+                res.append(np.cos(phi) * w)
+            elif i % 3 == 1:
+                res.append(np.sin(phi) * w)
+            else:
+                res.append(tube_radius * np.sin(theta))
+        else:
+            res.append(random_state.normal(0, pv_var, n))
+    return np.stack(res, axis=0)
+
+
+def generate_circular_examples(factors, active_vars, random_state, tube_radius=3.0, hole_radius=5.0,
+                               noise_strength=0.02, pv_var=0.02, n=10000):
+    samples = []
+
+    samples.append(torus_samples(factors, active_vars, tube_radius, hole_radius, random_state, pv_var, n))
+    sigma = np.diag([noise_strength if i < active_vars else 1 for i in range(factors)])
+    samples_n = random_state.multivariate_normal(np.zeros((factors,)), np.identity(factors), n)
+    samples.append(samples[0] + np.dot(samples_n, sigma).T)
+    covs = [np.cov(s) for s in samples]
+
+    return covs, samples
+
+
+def compare_metrics(factors, active_vars, seed, truncated=False, gaussian=True, distrib=(0.2, 0.2),
+                    noise_strength=0.02, pv_var=0.02, verbose=False):
     """ Generate synthetic data from gaussian distributions emulating mean and variance representations with varying
     number of factors and active variables.
 
@@ -116,26 +168,26 @@ def compare_metrics(factors, active_vars, seed, truncated=False, cov_min=0.2, co
     :param active_vars: number of active variables
     :param seed: Integer used to fix the random number generation
     :param truncated: False if not truncated, true otherwise
-    :param cov_min: minimum covariance between active variables
-    :param cov_max: maximum covariance between active variables
+    :param gaussian: False if ring/torus, true otherwise
+    :param distrib: if gaussian tuple with (min_cov, max_cov) else (tube_radius, hole_radius)
     :param noise_strength: The noise applied to active variables sampled from mean representations
+    :param pv_var: passive variables variance
     :param verbose: If true, print the result, else execute silently
     :return: list of dict of scores
     """
     random_state = np.random.RandomState(seed)
-    n = 10000
-    mu = np.repeat(0, factors)
-    samples = []
     scores = []
 
-    cov_m, cov_s = generate_cov_mat(factors, active_vars, cov_min, cov_max, random_state)
-    samples += random_state.multivariate_normal(mu, cov_m, n).T, random_state.multivariate_normal(mu, cov_s, n).T
-    sigma = np.diag([noise_strength if i < active_vars else 1 for i in range(factors)])
-    samples_n = random_state.multivariate_normal(mu, np.identity(factors), n)
-    samples.append(samples[0] + np.dot(samples_n, sigma).T)
-    covs = [np.cov(s) for s in samples]
+    if gaussian is True:
+        cov_min, cov_max = distrib
+        covs, samples = generate_gaussian_examples(factors, active_vars, random_state, cov_min=cov_min, cov_max=cov_max,
+                                                   noise_strength=noise_strength, pv_var=pv_var)
+    else:
+        tube, hole = distrib
+        covs, samples = generate_circular_examples(factors, active_vars, random_state, tube_radius=tube,
+                                                   hole_radius=hole, noise_strength=noise_strength, pv_var=pv_var)
 
-    representations = ["mean", "sampled_c", "sampled_m"]
+    representations = ["mean", "sampled"]
     for i, rep in enumerate(representations):
         cov = covs[i]
         r = {}
@@ -149,12 +201,13 @@ def compare_metrics(factors, active_vars, seed, truncated=False, cov_min=0.2, co
         scores.append(r)
 
     if verbose is True:
-        print_results(scores)
+        print_results(scores, seed)
 
     return scores
 
 
-def all_metrics_comparison(factors, out_path, seed, cov_min=0.2, cov_max=0.2, noise_strength=0.02, verbose=False):
+def gaussian_metrics_comparison(factors, out_path, seed, cov_min=0.2, cov_max=0.2, noise_strength=0.02, pv_var=0.02,
+                                verbose=False):
     """ Generate synthetic data from gaussian distributions emulating mean and variance representations with 0 to
     <nb_factors> active variables.
 
@@ -164,17 +217,20 @@ def all_metrics_comparison(factors, out_path, seed, cov_min=0.2, cov_max=0.2, no
     :param cov_min: minimum covariance between active variables
     :param cov_max: maximum covariance between active variables
     :param noise_strength: The noise applied to active variables sampled from mean representations
+    :param pv_var: passive variables variance
     :param verbose: If true, print the result, else execute silently
     :return: None
     """
     out_path = Path(out_path).absolute()
-    fname = str(out_path / "seed_{}_cov_{}_{}_noise_{}_synthetic.tsv".format(seed, cov_min, cov_max, noise_strength))
+    fname = str(out_path / "seed_{}_{}_cov_{}_{}_noise_{}_synthetic.tsv".format(seed, factors, cov_min, cov_max, noise_strength))
 
     res = []
     for va in range(factors + 1):
-        res += compare_metrics(factors, va, seed, False, cov_min, cov_max, noise_strength, verbose)
+        res += compare_metrics(factors, va, seed, truncated=False, distrib=(cov_min, cov_max),
+                               noise_strength=noise_strength, pv_var=pv_var, verbose=verbose)
         if va >= 2:
-            res += compare_metrics(va, va, seed, True, cov_min, cov_max, noise_strength, verbose)
+            res += compare_metrics(va, va, seed, truncated=True, distrib=(cov_min, cov_max),
+                                   noise_strength=noise_strength, pv_var=pv_var, verbose=verbose)
     df = pd.DataFrame(res)
     df["num_factors"] = factors
     df["cov_min"] = cov_min
@@ -182,4 +238,28 @@ def all_metrics_comparison(factors, out_path, seed, cov_min=0.2, cov_max=0.2, no
     df["noise_strength"] = noise_strength
     df["seed"] = seed
     df.to_csv(fname, sep="\t", index=False)
+
+
+def non_gaussian_metrics_comparison(factors, out_path, seed, tube_radius=3, hole_radius=5, noise_strength=0.02,
+                                    pv_var=0.02, verbose=False):
+    out_path = Path(out_path).absolute()
+    fname = str(out_path / "seed_{}_{}_tube_{}_hole_{}_torus_synthetic.tsv".format(seed, factors, tube_radius, hole_radius))
+    res = []
+
+    for va in range(factors + 1):
+        res += compare_metrics(factors, va, seed, truncated=False, distrib=(tube_radius, hole_radius), gaussian=False,
+                               noise_strength=noise_strength, pv_var=pv_var, verbose=verbose)
+        if va >= 2:
+            res += compare_metrics(va, va, seed, truncated=True, distrib=(tube_radius, hole_radius), gaussian=False,
+                                   noise_strength=noise_strength, pv_var=pv_var, verbose=verbose)
+
+    df = pd.DataFrame(res)
+    df["num_factors"] = factors
+    df["tube_radius"] = tube_radius
+    df["hole_radius"] = hole_radius
+    df["noise_strength"] = noise_strength
+    df["seed"] = seed
+    df.to_csv(fname, sep="\t", index=False)
+
+
 
