@@ -22,8 +22,7 @@ def draw_synthetic_scores(args):
 
 if __name__ == "__main__":
     # /media/bonheml/phd_data/VAE_TC_study/aggregated_results
-    metric_choices = ["gaussian_total_correlation", "gaussian_wasserstein_correlation",
-                      "continuous_mutual_info_score", "discrete_mutual_info_score"]
+    metric_choices = ["gaussian_total_correlation", "discrete_mutual_info_score"]
     parser = argparse.ArgumentParser(description="Reproduce figures from the paper")
     subparsers = parser.add_subparsers()
 

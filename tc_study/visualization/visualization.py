@@ -2,8 +2,8 @@ import glob
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import numpy as np
+
+from tc_study.visualization.utils import get_variables_combinations
 
 sns.set(font_scale=1.5)
 sns.set_style("whitegrid", {'axes.grid': False, 'legend.labelspacing': 1.2})
@@ -37,8 +37,8 @@ def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlatio
         out_fname = "{}/truncated_{}_{}_{}_plot.pdf".format(out_path, y_label, model, dataset)
     x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
     x_label = list(df.columns.intersection(x_labels))[0]
-    g = sns.catplot(data=df, x=x_label, y=y_label, col="truncated", hue="representation", ci=ci, kind="point",
-                    linestyles=["-", "--"], markers=["o", "x"], legend_out=False, dodge=False)
+    g = sns.catplot(data=df, x=x_label, y=y_label, col="combination", hue="representation", ci=ci, kind="point",
+                    linestyles=["-", "--"], markers=["o", "x"], legend_out=False, dodge=False, col_wrap=2)
     g.set_axis_labels(x_label.replace("_", " ").capitalize(), y_label.replace("_", " ").capitalize())
 
     plt.tight_layout()
@@ -47,36 +47,18 @@ def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlatio
 
 def draw_synthetic_scores(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
-    if "cov_min" in df.columns.values:
-        params = df.cov_min.unique()[0], df.cov_max.unique()[0]
-        param_name = "cov"
-    else:
-        params = df.tube_radius.unique()[0], df.hole_radius.unique()[0]
-        param_name = "radii"
+    params = df.cov_min.unique()[0], df.cov_max.unique()[0]
+    param_name = "cov"
     base_fname = "{}/truncated_factors_{}_{}_{}_{}_{}_noise_{}".format(out_path, y_label, df.num_factors.unique()[0],
                                                                        param_name, params[0], params[1],
                                                                        df.noise_strength.unique()[0])
     out_fname = "{}_sd_plot.pdf".format(base_fname) if ci else "{}_plot.pdf".format(base_fname)
     df["passive_variables"] = df.num_factors - df.active_variables
 
-    g = sns.relplot(data=df, x="passive_variables", y=y_label, col="truncated", hue="representation",
-                    style="representation", kind="line")
+    g = sns.relplot(data=df, x="passive_variables", y=y_label, col="combination", hue="representation",
+                    style="representation", kind="line", col_wrap=2)
     g.set_axis_labels("Passive variables", y_label.replace("_", " ").capitalize())
 
-    plt.tight_layout()
-    save_figure(out_fname)
-
-
-def draw_agg_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlation"):
-    df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
-    df["truncated"] = df["truncated"].replace([True, False], ["truncated", ""])
-    df["truncated_representation"] = df["representation"] + " " + df["truncated"]
-    x_label = "regularization"
-    g = sns.FacetGrid(df, col="dataset", row="model", margin_titles=True)
-    g.map_dataframe(sns.lineplot, x=x_label, y=y_label, hue="truncated_representation")
-    g.set_axis_labels("Regularization", y_label.replace("_", " "))
-    g.set_titles(col_template="{col_name}", row_template="{row_name}")
-    out_fname = "{}/truncated_{}_agg_plot.pdf".format(out_path, y_label)
     plt.tight_layout()
     save_figure(out_fname)
 
@@ -88,8 +70,7 @@ def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="globa
     all_files.remove(glob_file)
     for file in all_files:
         draw_truncated_scores(file, out_path, y_label)
-        # draw_truncated_scores(file, out_path, y_label, ci="sd")
-    # draw_agg_truncated_scores(glob_file, out_path, y_label)
+        draw_truncated_scores(file, out_path, y_label, ci="sd")
 
 
 def draw_all_synthetic_scores(in_path, out_path, y_label):
@@ -97,7 +78,7 @@ def draw_all_synthetic_scores(in_path, out_path, y_label):
     all_files = glob.glob("{}/*.tsv".format(in_path))
     for file in all_files:
         draw_synthetic_scores(file, out_path, y_label)
-        # draw_truncated_scores(file, out_path, y_label, ci="sd")
+        draw_truncated_scores(file, out_path, y_label, ci="sd")
 
 
 def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
@@ -114,6 +95,7 @@ def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
     model = df.model.iloc[0]
     dataset = df.dataset.iloc[0]
+
     if ci:
         out_fname = "{}/passive_variables_{}_{}_{}_sd_plot.pdf".format(out_path, y_label, model, dataset)
     else:
@@ -122,14 +104,14 @@ def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None
     x_label = list(df.columns.intersection(x_labels))[0]
     fig, ax1 = plt.subplots()
 
-    sns.barplot(data=df, x=x_label, y="num_passive_variables", palette="viridis", ax=ax1, ci=ci, alpha=0.5)
+    sns.barplot(data=df, x=x_label, y="num_passive_variables", palette="viridis", ax=ax1, alpha=0.5)
     ax2 = ax1.twinx()
     sns.pointplot(data=df, x=x_label, y=y_label, ax=ax2, ci=ci, hue="representation", linestyles=["-", "--"],
                   markers=["o", "x"])
 
     ax1.set_xlabel(x_label.replace("_", " ").capitalize())
     ax1.set_ylabel("Passive variables (averaged)")
-    ax2.set_ylabel(y_label.replace("_", " ").capitalize())
+    ax2.set_ylabel(y_label.split(".")[1].replace("_", " ").capitalize())
 
     fig.tight_layout()
 
@@ -142,11 +124,11 @@ def draw_all_tc_vp(in_path, out_path, y_label, global_res_file="global_results.t
     all_files.remove(glob_file)
     for file in all_files:
         draw_tc_vp(file, out_path, y_label)
-        draw_tc_vp(file, out_path, y_label, ci="sd")
+        # draw_tc_vp(file, out_path, y_label, ci="sd")
 
 
-def draw_downstream_task_reg(in_fname, out_path, metric="gaussian_total_correlation",
-                             ds_task="logistic_regression_1000", representation="mean"):
+def draw_downstream_task_reg(in_fname, out_path, metric="full.gaussian_total_correlation",
+                             ds_task="full.logistic_regression_1000", representation="mean"):
     """ Generate and save a line plot of unsupervised comparison score and downstream task score for a given model and
     dataset with one hyper-parameter of increasing value.
 
@@ -159,7 +141,6 @@ def draw_downstream_task_reg(in_fname, out_path, metric="gaussian_total_correlat
     :return:
     """
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
-    df = df[df.truncated == False]
     df = df[df.representation == representation]
     out_fname = "{}/{}_{}_{}_{}_{}_plot.pdf".format(out_path, ds_task, metric, df.model.iloc[0], df.dataset.iloc[0],
                                                     representation)
@@ -177,31 +158,13 @@ def draw_downstream_task_reg(in_fname, out_path, metric="gaussian_total_correlat
     save_figure(out_fname)
 
 
-def draw_all_downstream_task_reg(in_path, out_path, global_res_file="global_results.tsv"):
+def draw_all_downstream_task_reg(in_path, out_path, metric="gaussian_total_correlation",
+                                 ds_task="logistic_regression_1000", global_res_file="global_results.tsv"):
     glob_file = "{}/{}".format(in_path, global_res_file)
     all_files = glob.glob("{}/*.tsv".format(in_path))
     all_files.remove(glob_file)
     for file in all_files:
-        draw_downstream_task_reg(file, out_path)
+        for comb in get_variables_combinations():
+            draw_downstream_task_reg(file, out_path, metric="{}.{}".format(comb, metric),
+                                     ds_task="{}.{}".format(comb, ds_task))
 
-
-def draw_torus(x):
-    fig = plt.figure()
-    ax = Axes3D(fig)
-    ax.scatter(x[0], x[1], x[2])
-    max_range = np.array([x[0].max() - x[0].min(), x[1].max() - x[1].min(), x[2].max() - x[2].min()]).max()
-    Xb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][0].flatten() + 0.5 * (x[0].max() + x[0].min())
-    Yb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][1].flatten() + 0.5 * (x[1].max() + x[1].min())
-    Zb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][2].flatten() + 0.5 * (x[2].max() + x[2].min())
-    for xb, yb, zb in zip(Xb, Yb, Zb):
-        ax.plot([xb], [yb], [zb], 'w')
-    plt.grid()
-    plt.show()
-
-
-def draw_ring(x):
-    fig, ax = plt.subplots()
-    ax.scatter(x[0], x[1])
-    ax.set_aspect('equal', 'box')
-    plt.grid()
-    plt.show()

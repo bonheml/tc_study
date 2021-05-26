@@ -125,40 +125,6 @@ def generate_gaussian_examples(factors,  active_vars, random_state, cov_min=0.2,
     return covs, samples
 
 
-def torus_samples(factors, active_vars, tube_radius, hole_radius, random_state, pv_var=0.02, n=10000):
-    theta = random_state.uniform(0, 2 * np.pi, n)
-    phi = random_state.uniform(0, 2 * np.pi, n)
-    w = (hole_radius + tube_radius * np.cos(theta))
-    res = []
-    for i in range(factors):
-        if i < active_vars:
-            if i % 3 == 0:
-                theta = random_state.uniform(0, 2 * np.pi, n)
-                phi = random_state.uniform(0, 2 * np.pi, n)
-                w = (hole_radius + tube_radius * np.cos(theta))
-                res.append(np.cos(phi) * w)
-            elif i % 3 == 1:
-                res.append(np.sin(phi) * w)
-            else:
-                res.append(tube_radius * np.sin(theta))
-        else:
-            res.append(random_state.normal(0, pv_var, n))
-    return np.stack(res, axis=0)
-
-
-def generate_circular_examples(factors, active_vars, random_state, tube_radius=3.0, hole_radius=5.0,
-                               noise_strength=0.02, pv_var=0.02, n=10000):
-    samples = []
-
-    samples.append(torus_samples(factors, active_vars, tube_radius, hole_radius, random_state, pv_var, n))
-    sigma = np.diag([noise_strength if i < active_vars else 1 for i in range(factors)])
-    samples_n = random_state.multivariate_normal(np.zeros((factors,)), np.identity(factors), n)
-    samples.append(samples[0] + np.dot(samples_n, sigma).T)
-    covs = [np.cov(s) for s in samples]
-
-    return covs, samples
-
-
 def compare_metrics(factors, active_vars, seed, truncated=False, gaussian=True, distrib=(0.2, 0.2),
                     noise_strength=0.02, pv_var=0.02, verbose=False):
     """ Generate synthetic data from gaussian distributions emulating mean and variance representations with varying
@@ -178,14 +144,9 @@ def compare_metrics(factors, active_vars, seed, truncated=False, gaussian=True, 
     random_state = np.random.RandomState(seed)
     scores = []
 
-    if gaussian is True:
-        cov_min, cov_max = distrib
-        covs, samples = generate_gaussian_examples(factors, active_vars, random_state, cov_min=cov_min, cov_max=cov_max,
-                                                   noise_strength=noise_strength, pv_var=pv_var)
-    else:
-        tube, hole = distrib
-        covs, samples = generate_circular_examples(factors, active_vars, random_state, tube_radius=tube,
-                                                   hole_radius=hole, noise_strength=noise_strength, pv_var=pv_var)
+    cov_min, cov_max = distrib
+    covs, samples = generate_gaussian_examples(factors, active_vars, random_state, cov_min=cov_min, cov_max=cov_max,
+                                               noise_strength=noise_strength, pv_var=pv_var)
 
     representations = ["mean", "sampled"]
     for i, rep in enumerate(representations):
@@ -238,28 +199,3 @@ def gaussian_metrics_comparison(factors, out_path, seed, cov_min=0.2, cov_max=0.
     df["noise_strength"] = noise_strength
     df["seed"] = seed
     df.to_csv(fname, sep="\t", index=False)
-
-
-def non_gaussian_metrics_comparison(factors, out_path, seed, tube_radius=3, hole_radius=5, noise_strength=0.02,
-                                    pv_var=0.02, verbose=False):
-    out_path = Path(out_path).absolute()
-    fname = str(out_path / "seed_{}_{}_tube_{}_hole_{}_torus_synthetic.tsv".format(seed, factors, tube_radius, hole_radius))
-    res = []
-
-    for va in range(factors + 1):
-        res += compare_metrics(factors, va, seed, truncated=False, distrib=(tube_radius, hole_radius), gaussian=False,
-                               noise_strength=noise_strength, pv_var=pv_var, verbose=verbose)
-        if va >= 2:
-            res += compare_metrics(va, va, seed, truncated=True, distrib=(tube_radius, hole_radius), gaussian=False,
-                                   noise_strength=noise_strength, pv_var=pv_var, verbose=verbose)
-
-    df = pd.DataFrame(res)
-    df["num_factors"] = factors
-    df["tube_radius"] = tube_radius
-    df["hole_radius"] = hole_radius
-    df["noise_strength"] = noise_strength
-    df["seed"] = seed
-    df.to_csv(fname, sep="\t", index=False)
-
-
-
