@@ -40,17 +40,21 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
                "postprocess_config.postprocess.name": "representation",
                "train_config.model.model_num": "model_index",
                "train_config.model.name": "model",
-               "evaluation_results.passive_variables_idx": "passive_variables_idx",
-               "evaluation_results.mixed_variables_idx": "mixed_variables_idx",
-               "evaluation_results.active_variables_idx": "active_variables_idx"}
+               "evaluation_results.num_passive_variables": "num_passive_variables",
+               "evaluation_results.num_mixed_variables": "num_mixed_variables",
+               "evaluation_results.num_active_variables": "num_active_variables",
+               "evaluation_results.covariance_matrix": "covariance_matrix",
+               "evaluation_results.correlation_matrix": "correlation_matrix",
+               "evaluation_results.mutual_info_matrix": "mutual_info_matrix",
+               }
     for c in comb:
-        to_keep += {
+        to_keep.update({
             "evaluation_results.{}.gaussian_total_correlation".format(c): "{}.gaussian_total_correlation".format(c),
             "evaluation_results.{}.mutual_info_score".format(c): "{}.mutual_info_score".format(c),
             "evaluation_results.{}.10:mean_test_accuracy".format(c): "{}.{}_10".format(c, m),
             "evaluation_results.{}.100:mean_test_accuracy".format(c): "{}.{}_100".format(c, m),
             "evaluation_results.{}.1000:mean_test_accuracy".format(c): "{}.{}_1000".format(c, m),
-            "evaluation_results.{}.10000:mean_test_accuracy".format(c): "{}.{}_10000".format(c, m)}
+            "evaluation_results.{}.10000:mean_test_accuracy".format(c): "{}.{}_10000".format(c, m)})
 
     model_params = {"train_config.dip_vae.lambda_od": "lambda_od",
                     "train_config.beta_tc_vae.beta": "tc_beta",
@@ -68,11 +72,11 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
     df = df.rename(columns=all_cols, errors="ignore")
     df[["representation", "model", "dataset"]] = df[["representation", "model", "dataset"]].replace({"'": ""},
                                                                                                     regex=True)
-    col_ids = [c for c in existing_cols.tolist() if "." not in c]
-    df = pd.melt(df, id_vars=col_ids, var_name="combination")
+    col_ids = [c for c in df.columns.tolist() if "." not in c]
+    df = pd.melt(df, id_vars=col_ids, var_name="combination", value_name="score")
     df[['combination', 'metric']] = df['combination'].str.split('.', 1, expand=True)
-    df = df.pivot_table(index=["model_index", "combination"], columns=["metric"])
-    df = df.droplevel(0, axis=1).rename_axis(None, axis=1).reset_index()
+    # df = df.pivot_table(index=["model_index", "combination"], columns=["metric"])
+    # df = df.droplevel(0, axis=1).rename_axis(None, axis=1).reset_index()
     return df
 
 
@@ -106,14 +110,16 @@ def aggregate_all_scores(base_path, out_path):
     df_list = []
 
     for i, model_info in models_info.iterrows():
-        logger("Aggregating unsupervised scores of {} on {}".format(model_info.model, model_info.dataset))
+        logger.info("Aggregating unsupervised scores of {} on {}".format(model_info.model, model_info.dataset))
         df = aggregate_scores(model_info, base_path, "sampled")
         df = df.append(aggregate_scores(model_info, base_path, "mean"), ignore_index=True)
-        df2 = aggregate_scores(model_info, base_path, "mean", "truncated_downstream_task_logistic_regression")
-        df2 = df2.append(aggregate_scores(model_info, base_path, "sampled", "truncated_downstream_task_logistic_regression"))
-        df = df.merge(df2)
+        # df2 = aggregate_scores(model_info, base_path, "mean", "truncated_downstream_task_logistic_regression")
+        # df2 = df2.append(aggregate_scores(model_info, base_path, "sampled", "truncated_downstream_task_logistic_regression"))
+        # df = df.merge(df2)
+        # Remove combinations with no associated score (e.g., active_passive with 0 passive variables)
+        df.dropna(subset=["score"], inplace=True)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
         df_list.append(df)
-        del df2
+        # del df2
     main_df = get_aggregated_version(df_list)
     main_df.to_csv("{}/global_results.tsv".format(out_path), sep="\t", index=False)

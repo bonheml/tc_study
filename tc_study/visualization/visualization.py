@@ -1,9 +1,13 @@
 import glob
+import json
+import os
+
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from tc_study.visualization.utils import get_variables_combinations
+from tc_study.visualization import logger
+from tc_study.visualization.utils import get_variables_combinations, get_model_files
 
 sns.set(font_scale=1.5)
 sns.set_style("whitegrid", {'axes.grid': False, 'legend.labelspacing': 1.2})
@@ -168,3 +172,27 @@ def draw_all_downstream_task_reg(in_path, out_path, metric="gaussian_total_corre
             draw_downstream_task_reg(file, out_path, metric="{}.{}".format(comb, metric),
                                      ds_task="{}.{}".format(comb, ds_task))
 
+
+def draw_model_histograms(in_fname, out_path, representation="mean"):
+    with open(in_fname, "r") as f:
+        res = json.load(f)
+    discretized = res["evaluation_results.hist"]
+    for i in range(len(discretized)):
+        fig, ax = plt.subplots()
+        out_fname = "{}/histogram_{}_z{}.pdf".format(out_path, representation, i)
+        counts, bins = discretized[i]
+        ax.hist(bins[:-1], bins, weights=counts)
+        fig.tight_layout()
+        save_figure(out_fname)
+        plt.close(fig)
+        plt.cla()
+        plt.clf()
+
+
+def draw_all_histograms(in_path, out_path, representation="mean"):
+    model_files, model_ids = get_model_files(in_path, representation)
+    for model, i in zip(model_files, model_ids):
+        out_model = "{}/{}".format(out_path, i)
+        os.makedirs(out_model, exist_ok=True)
+        logger.info("Computing {} histogram for model {}".format(representation, i))
+        draw_model_histograms(model, out_model, representation)

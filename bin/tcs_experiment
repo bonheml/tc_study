@@ -1,42 +1,102 @@
 import argparse
+import os
+
+from tc_study.utils.models import get_file
 from tc_study.experiment.downstream_task_evaluation import compute_all_truncated_downstream_tasks
+from tc_study.experiment.histograms import compute_all_histograms
 from tc_study.experiment.variables_filter import compute_all_variable_indexes
 from tc_study.experiment.unsupervised_evaluation import compute_all_truncated_unsupervised_metrics
+from tc_study.experiment.postprocess import postprocess_models
+from disentanglement_lib.config.unsupervised_study_v1 import sweep
+from tc_study.experiment.train_models import train_with_gin
 
 
-def compute_passive_variables(args):
-    compute_all_variable_indexes(args.model_path, args.overwrite, nb_proc=args.multiprocess)
+def filter_variables(args):
+    if args.model_ids_range is not None:
+        args.model_ids = range(*args.model_ids_range)
+    compute_all_variable_indexes(args.model_path, overwrite=args.overwrite, model_ids=args.model_ids,
+                                 nb_proc=args.multiprocess)
 
 
 def compute_unsupervised_metrics(args):
-    compute_all_truncated_unsupervised_metrics(args.model_path, args.representation, overwrite=args.overwrite,
-                                               nb_proc=args.multiprocess)
+    if args.model_ids_range is not None:
+        args.model_ids = range(*args.model_ids_range)
+    compute_all_truncated_unsupervised_metrics(args.model_path, args.representation, model_ids=args.model_ids,
+                                               overwrite=args.overwrite, nb_proc=args.multiprocess)
 
 
 def compute_downstream_tasks(args):
-    compute_all_truncated_downstream_tasks(args.model_path, args.representation, predictor=args.predictor,
-                                           overwrite=args.overwrite)
+    if args.model_ids_range is not None:
+        args.model_ids = range(*args.model_ids_range)
+    compute_all_truncated_downstream_tasks(args.model_path, args.representation, model_ids=args.model_ids,
+                                           predictor=args.predictor, overwrite=args.overwrite, nb_proc=args.multiprocess)
+
+
+def launch_postprocess_models(args):
+    if args.model_ids_range is not None:
+        args.model_ids = range(*args.model_ids_range)
+    postprocess_models(args.model_path, args.representation, model_ids=args.model_ids,
+                       overwrite=args.overwrite, nb_proc=args.multiprocess)
+
+
+def compute_histograms(args):
+    if args.model_ids_range is not None:
+        args.model_ids = range(*args.model_ids_range)
+    compute_all_histograms(args.model_path, args.representation, model_ids=args.model_ids, overwrite=args.overwrite, nb_proc=args.multiprocess)
+
+
+def train(args):
+    study = sweep.UnsupervisedStudyV1()
+    model_bindings = [b.replace("model.", "custom_model.") for b in study.get_model_config(args.model_num)[0]]
+    model_config_file = get_file("config/shared.gin")
+    model_dir = os.path.join(args.output_path, str(args.model_num))
+    model_bindings = ["custom_model.name = '{}'".format(os.path.basename(model_config_file)).replace(".gin", ""),
+                      "custom_model.model_num = {}".format(args.model_num),
+                      "custom_model.keep_checkpoint_max = {}".format(args.num_checkpoint),
+                      "custom_model.save_checkpoints_steps = {}".format(args.save_checkpoints_steps)] + model_bindings
+    train_with_gin(model_dir, args.overwrite, [model_config_file], model_bindings)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Reproduce truncation experiment using dislib pre-trained VAE models")
     subparsers = parser.add_subparsers()
 
-    pv = subparsers.add_parser("passive_variables", aliases=["pv", "variables"])
-    pv.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
-    pv.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
-    pv.add_argument("--multiprocess", "-m", nargs='?', const=4, type=int,
+    fv = subparsers.add_parser("filter_variables", aliases=["fv", "variables"])
+    fv.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
+    gfv = fv.add_mutually_exclusive_group()
+    gfv.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to postprocess")
+    gfv.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
+                     help="Range of ID of the models to postprocess")
+    fv.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    fv.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
                     help="UNSTABLE: Performs distributed computation")
-    pv.set_defaults(func=compute_passive_variables)
+    fv.set_defaults(func=filter_variables)
 
     um = subparsers.add_parser("unsupervised_metrics", aliases=["um"])
     um.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
     um.add_argument("representation", type=str, choices=["mean", "sampled"],
                     help="Representation from which we need to compute unsupervised scores")
+    gum = um.add_mutually_exclusive_group()
+    gum.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to postprocess")
+    gum.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
+                     help="Range of ID of the models to postprocess")
     um.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
-    um.add_argument("--multiprocess", "-m", nargs='?', const=4, type=int,
+    um.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
                     help="UNSTABLE: Performs distributed computation")
     um.set_defaults(func=compute_unsupervised_metrics)
+
+    hist = subparsers.add_parser("histograms", aliases=["hs"])
+    hist.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
+    hist.add_argument("representation", type=str, choices=["mean", "sampled", "variance"],
+                      help="Representation from which we need to compute unsupervised scores")
+    gh = hist.add_mutually_exclusive_group()
+    gh.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to postprocess")
+    gh.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
+                     help="Range of ID of the models to postprocess")
+    hist.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    hist.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
+                      help="UNSTABLE: Performs distributed computation")
+    hist.set_defaults(func=compute_histograms)
 
     dt = subparsers.add_parser("downstream_tasks", aliases=["dt", "tasks"])
     dt.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
@@ -44,10 +104,36 @@ if __name__ == "__main__":
                     help="Representation which will be used for downstream tasks")
     dt.add_argument("predictor", type=str, choices=["logistic_regression_cv", "gradient_boosting_classifier"],
                     help="Predictor function to use")
+    gdt = dt.add_mutually_exclusive_group()
+    gdt.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to postprocess")
+    gdt.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
+                     help="Range of ID of the models to postprocess")
     dt.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
-    um.add_argument("--multiprocess", "-m", nargs='?', const=4, type=int,
+    dt.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
                     help="UNSTABLE: Performs distributed computation")
     dt.set_defaults(func=compute_downstream_tasks)
+
+    pm = subparsers.add_parser("postprocess_model", aliases=["pm"])
+    pm.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
+    pm.add_argument("representation", type=str, choices=["mean", "sampled", "variance"],
+                    help="Representation to postprocess")
+    gpm = pm.add_mutually_exclusive_group()
+    gpm.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to postprocess")
+    gpm.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
+                     help="Range of ID of the models to postprocess")
+    pm.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    pm.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
+                    help="UNSTABLE: Performs distributed computation")
+    pm.set_defaults(func=launch_postprocess_models)
+
+    tr = subparsers.add_parser("train", aliases=["tr"])
+    tr.add_argument("output_path", type=str, help="Path where the trained model will be stored")
+    tr.add_argument("model_num", type=int, help="ID of the model to reproduce")
+    tr.add_argument("--save_checkpoints_steps", "-s", type=int, default=1000,
+                    help="Number of steps between each checkpoint")
+    tr.add_argument("--num_checkpoint", "-c", type=int, default=0, help="Number of checkpoints to keep")
+    tr.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    tr.set_defaults(func=train)
 
     res = parser.parse_args()
     res.func(res)

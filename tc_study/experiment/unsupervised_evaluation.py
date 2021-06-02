@@ -1,6 +1,6 @@
 import pathlib
 from functools import partial
-from itertools import combinations_with_replacement
+from itertools import combinations_with_replacement, combinations
 from multiprocessing import Pool
 
 import gin
@@ -38,14 +38,15 @@ def compute_unsupervised_metrics(idxs_to_keep, cov_mus, mus_discrete, prefix):
     np.fill_diagonal(mutual_info_matrix, 0)
     mutual_info_score = np.sum(mutual_info_matrix) / (num_codes ** 2 - num_codes)
     scores["{}.mutual_info_score".format(prefix)] = mutual_info_score
+    if prefix == "full":
+        scores["mutual_info_matrix"] = mutual_info_matrix.tolist()
 
     return scores
 
 
 @gin.configurable(
     "truncated_unsupervised_metrics",
-    blacklist=["ground_truth_data", "representation_function", "random_state", "active_variables_idx",
-               "mixed_variables_idx", "passive_variables_idx", "artifact_dir"])
+    blacklist=["ground_truth_data", "representation_function", "random_state", "artifact_dir"])
 def truncated_unsupervised_metrics(ground_truth_data, representation_function, random_state, active_variables_idx,
                                    mixed_variables_idx, passive_variables_idx, artifact_dir=None,
                                    num_train=gin.REQUIRED, batch_size=16):
@@ -75,22 +76,21 @@ def truncated_unsupervised_metrics(ground_truth_data, representation_function, r
     assert num_codes == cov_mus.shape[0]
 
     # Compute full scores
-    compute_unsupervised_metrics(range(num_codes), cov_mus, mus_discrete, "full")
+    scores.update(compute_unsupervised_metrics(range(num_codes), cov_mus, mus_discrete, "full"))
 
     # Compute truncated scores combining all possible combinations of variable type
-    idxs = {"active": active_variables_idx, "passive": mixed_variables_idx, "mixed": passive_variables_idx}
-    variables = {"{}_{}".format(v1, v2): idxs[v1] + idxs[v2]
-                 for v1, v2 in combinations_with_replacement(["active", "mixed", "passive"], 2)}
+    variables = {"active": active_variables_idx, "passive": passive_variables_idx, "mixed": mixed_variables_idx}
+    variables.update({"{}_{}".format(v1, v2): variables[v1] + variables[v2]
+                      for v1, v2 in combinations(["active", "mixed", "passive"], 2)
+                      if len(variables[v1]) > 0 and len(variables[v2]) > 0})
 
     for suffix, indexes in variables.items():
-        scores += compute_unsupervised_metrics(indexes, cov_mus, mus_discrete, suffix)
-    scores["active_variables_idx"] = active_variables_idx
-    scores["mixed_variables_idx"] = mixed_variables_idx
-    scores["passive_variables_idx"] = passive_variables_idx
-    scores["num_passive_variables"] = len(scores["passive_variables_idx"])
-    scores["num_mixed_variables"] = len(scores["passive_mixed_idx"])
-    scores["num_active_variables"] = len(scores["passive_active_idx"])
-
+        scores.update(compute_unsupervised_metrics(indexes, cov_mus, mus_discrete, suffix))
+    scores["num_passive_variables"] = len(passive_variables_idx)
+    scores["num_mixed_variables"] = len(mixed_variables_idx)
+    scores["num_active_variables"] = len(active_variables_idx)
+    scores["correlation_matrix"] = np.corrcoef(cov_mus).tolist()
+    scores["covariance_matrix"] = cov_mus.tolist()
     return scores
 
 
@@ -116,7 +116,7 @@ def compute_truncated_unsupervised_metrics(path, representation, overwrite=True,
     ]
     path = pathlib.Path(path)
     result_path = path.parent.parent / "metrics" / representation / "truncated_unsupervised"
-    truncation_file = (path.parent.parent / "metrics" / "mean" / "variables_index" / "results" / "aggregate"
+    truncation_file = (path.parent.parent / "metrics" / "mean" / "filtered_variables" / "results" / "aggregate"
                        / "evaluation.json")
     idxs = ["truncated_unsupervised_metrics.{} = {}".format(k, v)
             for k, v in get_variables_idx(truncation_file).items()]
@@ -126,8 +126,8 @@ def compute_truncated_unsupervised_metrics(path, representation, overwrite=True,
     gin_evaluation(path, result_path, overwrite, bindings)
 
 
-def compute_all_truncated_unsupervised_metrics(base_path, representation, overwrite=True, nb_proc=None):
-    model_paths = get_model_paths(base_path, representation)
+def compute_all_truncated_unsupervised_metrics(base_path, representation, model_ids=None, overwrite=True, nb_proc=None):
+    model_paths = get_model_paths(base_path, representation, model_ids=model_ids)
     if nb_proc is not None:
         f = partial(compute_truncated_unsupervised_metrics, representation=representation, overwrite=overwrite,
                     multiproc=True)

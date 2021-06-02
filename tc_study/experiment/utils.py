@@ -1,5 +1,5 @@
 import json
-
+import numpy as np
 import gin
 import pandas as pd
 from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
@@ -8,10 +8,14 @@ from disentanglement_lib.evaluation import evaluate
 from tc_study.experiment import logger
 
 
-def get_model_paths(base_path, representation):
+def get_model_paths(base_path, representation, model_ids=None):
+    base_path = base_path.rstrip("/")
     configs = get_config()
     df = pd.DataFrame(configs)
-    to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list()) - set(df.index[df["model.dataset"] == "shapes3d"].to_list())
+    if model_ids is None:
+        to_process = set(range(10800)) - set(df.index[df["model.name"] == "dip_vae_i"].to_list()) - set(df.index[df["dataset.name"] == "shapes3d"].to_list())
+    else:
+        to_process = model_ids
     model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
     return model_paths
 

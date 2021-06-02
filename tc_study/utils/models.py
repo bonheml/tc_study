@@ -1,11 +1,10 @@
 import pathlib
 import zipfile
+from io import BytesIO
+
 import pandas as pd
 import requests
-
-from io import BytesIO
 from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
-
 
 configs = get_config()
 
@@ -53,3 +52,9 @@ def download_models(base_path, save_space=False, overwrite=False):
         z = zipfile.ZipFile(raw_content)
         members = [n for n in z.namelist() if n.startswith("{}/metrics/".format(i))] if save_space is True else None
         z.extractall(path=base_path, members=members)
+
+
+def get_file(path):
+    """Returns path relative to file."""
+    from pkg_resources import resource_filename
+    return resource_filename("tc_study", path)

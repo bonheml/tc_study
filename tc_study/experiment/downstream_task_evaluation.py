@@ -28,11 +28,11 @@ def compute_truncated_downstream_task(idxs_to_keep, mus_train, ys_train, mus_tes
     for i in range(len(train_err)):
         scores["{}.{}:train_accuracy_factor_{}".format(prefix, train_size, i)] = train_err[i]
         scores["{}.{}:test_accuracy_factor_{}".format(prefix, train_size, i)] = test_err[i]
+    return scores
 
 
 @gin.configurable("truncated_downstream_task",
-                  blacklist=["ground_truth_data", "representation_function", "random_state", "active_variables_idx",
-                             "mixed_variables_idx", "passive_variables_idx", "artifact_dir"])
+                  blacklist=["ground_truth_data", "representation_function", "random_state", "artifact_dir"])
 def truncated_downstream_task(ground_truth_data, representation_function, random_state, active_variables_idx,
                               mixed_variables_idx, passive_variables_idx, artifact_dir=None,
                               num_train=gin.REQUIRED, num_test=gin.REQUIRED, batch_size=16):
@@ -64,7 +64,8 @@ def truncated_downstream_task(ground_truth_data, representation_function, random
             batch_size)
 
         # Compute full downstream task scores
-        compute_truncated_downstream_task(range(num_codes), mus_train, ys_train, mus_test, ys_test, train_size, "full")
+        scores.update(compute_truncated_downstream_task(range(num_codes), mus_train, ys_train, mus_test, ys_test,
+                                                        train_size, "full"))
 
         # Compute truncated downstream task scores combining all possible combinations of variable type
         idxs = {"active": active_variables_idx, "passive": mixed_variables_idx, "mixed": passive_variables_idx}
@@ -72,8 +73,8 @@ def truncated_downstream_task(ground_truth_data, representation_function, random
                      for v1, v2 in combinations_with_replacement(["active", "mixed", "passive"], 2)}
 
         for suffix, indexes in variables.items():
-            scores += compute_truncated_downstream_task(indexes, mus_train, ys_train, mus_test, ys_test, train_size,
-                                                        suffix)
+            scores.update(compute_truncated_downstream_task(indexes, mus_train, ys_train, mus_test, ys_test, train_size,
+                                                            suffix))
 
         return scores
 
@@ -103,7 +104,7 @@ def compute_truncated_downstream_tasks(path, representation, predictor="logistic
 
     path = pathlib.Path(path)
     result_path = path.parent.parent / "metrics" / representation / "truncated_downstream_task_{}".format(res_folder)
-    truncation_file = (path.parent.parent / "metrics" / "mean" / "passive_variables" / "results" / "aggregate"
+    truncation_file = (path.parent.parent / "metrics" / "mean" / "filtered_variables" / "results" / "aggregate"
                        / "evaluation.json")
     idxs = ["truncated__downstream_task.{} = {}".format(k, v) for k, v in get_variables_idx(truncation_file).items()]
     bindings = gin_bindings + idxs
@@ -112,9 +113,9 @@ def compute_truncated_downstream_tasks(path, representation, predictor="logistic
     gin_evaluation(path, result_path, overwrite, bindings)
 
 
-def compute_all_truncated_downstream_tasks(base_path, representation, predictor="logistic_regression_cv",
+def compute_all_truncated_downstream_tasks(base_path, representation, model_ids=None, predictor="logistic_regression_cv",
                                            overwrite=True, nb_proc=None):
-    model_paths = get_model_paths(base_path, representation)
+    model_paths = get_model_paths(base_path, representation, model_ids=model_ids)
     if nb_proc is not None:
         f = partial(compute_truncated_downstream_tasks, representation=representation, predictor=predictor,
                     overwrite=overwrite, multiproc=True)

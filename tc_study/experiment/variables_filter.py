@@ -16,8 +16,8 @@ from tc_study.utils.tf_config import set_cpu_option
     "variables_idx",
     blacklist=["ground_truth_data", "representation_function", "random_state",
                "artifact_dir"])
-def variables_indexes(ground_truth_data, representation_function, random_state, artifact_dir=None,
-                      num_train=gin.REQUIRED, pv_threshold=0.1, mv_threshold=0.9, batch_size=16):
+def variables_idx(ground_truth_data, representation_function, random_state, artifact_dir=None,
+                  num_train=gin.REQUIRED, pv_threshold=0.1, mv_threshold=0.9, batch_size=16):
     """Get indexes of variables whose variance is lower than a given threshold.
 
     :param ground_truth_data: GroundTruthData to be sampled from.
@@ -40,9 +40,10 @@ def variables_indexes(ground_truth_data, representation_function, random_state, 
     variances = np.diag(np.cov(mus_train))
     assert num_codes == variances.shape[0]
 
-    scores["passive_variables_idx"] = np.where(variances < pv_threshold)[0]
-    scores["mixed_variables_idx"] = np.where((variances >= pv_threshold) & (variances < mv_threshold))[0]
-    scores["active_variables_idx"] = np.where(variances >= mv_threshold)[0]
+    scores["passive_variables_idx"] = list(np.where(variances < pv_threshold)[0])
+    scores["mixed_variables_idx"] = list(np.where((variances >= pv_threshold) & (variances < mv_threshold))[0])
+    scores["active_variables_idx"] = list(np.where(variances >= mv_threshold)[0])
+    scores["variances"] = variances.tolist()
     return scores
 
 
@@ -60,17 +61,17 @@ def compute_variable_indexes(path, overwrite=True, multiproc=False):
 
     gin_bindings = [
         "evaluation.evaluation_fn = @variables_idx",
-        "passive_variables_idx.num_train = 10000", "evaluation.random_seed = 2051556033",
+        "variables_idx.num_train = 10000", "evaluation.random_seed = 2051556033",
         "dataset.name='auto'", "evaluation.name = 'variables index'"
     ]
     path = pathlib.Path(path)
-    result_path = path.parent.parent / "metrics" / "mean" / "variables_index"
+    result_path = path.parent.parent / "metrics" / "mean" / "filtered_variables"
     logger.info("Computing variable indexes of {}".format(path.parent.parent))
     gin_evaluation(path, result_path, overwrite, gin_bindings)
 
 
-def compute_all_variable_indexes(base_path, overwrite=True, nb_proc=None):
-    model_paths = get_model_paths(base_path, "mean")
+def compute_all_variable_indexes(base_path, model_ids=None, overwrite=True, nb_proc=None):
+    model_paths = get_model_paths(base_path, "mean", model_ids=model_ids)
     if nb_proc is not None:
         f = partial(compute_variable_indexes, overwrite=overwrite, multiproc=True)
         with Pool(processes=nb_proc) as pool:
