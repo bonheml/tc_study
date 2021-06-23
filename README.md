@@ -21,41 +21,33 @@ the dataset.
 
 ## Reproducing experiments
 
-### Computing the passive variables using:
+### Computing the passive, mixed and active variables indexes using:
 **This needs to be done first** as other parts of the experiment relies on these results.
 ```bash
-tcs_experiment pv <model_path>
+tcs_experiment fv <model_path>
 ```
 where `<model_path>` is the absolute path to the folder where you have downloaded the models.
 
 ### Computing unsupervised scores
 You can reproduce the unsupervised metrics scores with
 ```bash
-tcs_experiment um <model_path> {mean,sampled} [--truncate][--overwrite]
+tcs_experiment um <model_path> {mean,sampled}[--overwrite]
 ```
 For example, to reproduce the complete experiment:
 ```bash
 tcs_experiment um <model_path> mean
-tcs_experiment um <model_path> mean -t
 tcs_experiment um <model_path> sampled
-tcs_experiment um <model_path> sampled -t
 ```
 
 ### Computing downstream tasks
 You can reproduce the downstream tasks results with
 ```bash
-tcs_experiment dt <model_path> {mean,sampled} {logistic_regression_cv,gradient_boosting_classifier} [--truncate][--overwrite]
+tcs_experiment dt <model_path> {mean,sampled} {logistic_regression_cv,gradient_boosting_classifier} [--overwrite]
 ```
 For example, to reproduce the complete experiment:
 ```bash
 tcs_experiment dt <model_path> mean logistic_regression_cv
-tcs_experiment dt <model_path> mean logistic_regression_cv -t
 tcs_experiment dt <model_path> sampled logistic_regression_cv
-tcs_experiment dt <model_path> sampled logistic_regression_cv -t
-tcs_experiment dt <model_path> mean gradient_boosting_classifier
-tcs_experiment dt <model_path> mean gradient_boosting_classifier -t
-tcs_experiment dt <model_path> sampled gradient_boosting_classifier
-tcs_experiment dt <model_path> sampled gradient_boosting_classifier -t
 ```
 
 ### Aggregating the results
@@ -77,11 +69,7 @@ where `<results_path>` is the path to your aggregated results, `<output_path>` t
 figures will be stored and `<metric>` the metric to visualize. The metric can
 be:
 - gaussian_total_correlation
-- gaussian_wasserstein_correlation
-- gaussian_wasserstein_correlation_norm
 - mutual_info_score
-- adjusted_mutual_info_score
-- norm_mutual_info_score
 For example to see the relationship between total correlation and passive variables:
 ```bash
 tcs_visualize_results pv <results_path> <output_path> gaussian_total_correlation
@@ -95,11 +83,7 @@ where `<results_path>` is the path to your aggregated results, `<output_path>` t
 figures will be stored and `<metric>` the metric to visualize. The metric can
 be:
 - gaussian_total_correlation
-- gaussian_wasserstein_correlation
-- gaussian_wasserstein_correlation_norm
 - mutual_info_score
-- adjusted_mutual_info_score
-- norm_mutual_info_score
 For example to see the impact of truncated representations on total correlation:
 ```bash
 tcs_visualize_results ts <results_path> <output_path> gaussian_total_correlation

@@ -1,10 +1,10 @@
-from itertools import combinations_with_replacement
+from itertools import combinations_with_replacement, combinations
 import pandas as pd
 from disentanglement_lib.config.unsupervised_study_v1.sweep import get_config
 
 
 def get_variables_combinations():
-    comb = ["{}_{}".format(v1, v2) for v1, v2 in combinations_with_replacement(["active", "mixed", "passive"], 2)]
+    comb = ["{}_{}".format(v1, v2) for v1, v2 in combinations(["active", "mixed", "passive"], 2)]
     comb += ["full", "active", "mixed", "passive"]
     return comb
 

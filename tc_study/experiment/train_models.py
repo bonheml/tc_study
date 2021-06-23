@@ -195,5 +195,4 @@ def export_as_multi_tf_hub(gaussian_encoder_model, observation_shape, checkpoint
     checkpoints = glob.glob("{}/*.meta".format("/".join(checkpoint_path.split("/")[:-1])))
     paths = [("{}/{}/model/tfhub".format(export_path, r.rstrip(".meta").split("-")[-1]), r.rstrip(".meta")) for r in checkpoints]
     for exp_dir, checkpoint_file in paths:
-        print(exp_dir, checkpoint_file)
         spec.export(exp_dir, checkpoint_path=checkpoint_file)

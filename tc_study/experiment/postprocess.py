@@ -1,6 +1,5 @@
 import pathlib
 from functools import partial
-from glob import glob
 from multiprocessing import Pool
 
 import gin

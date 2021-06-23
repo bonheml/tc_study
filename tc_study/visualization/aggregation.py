@@ -5,13 +5,13 @@ import pandas as pd
 from disentanglement_lib.utils.aggregate_results import _load
 from tensorflow._api.v1.compat.v1 import gfile
 
-from tc_study.visualization import logger
 from tc_study.utils.models import get_model_info
 from tc_study.utils.string_manipulation import remove_prefix
+from tc_study.visualization import logger
 from tc_study.visualization.utils import get_variables_combinations
 
 
-def get_files(pattern):
+def get_files(pattern, cols):
     files = gfile.Glob(pattern)
     with multiprocessing.Pool() as pool:
         try:
@@ -19,7 +19,7 @@ def get_files(pattern):
         except Exception as e:
             pool.close()
             raise e
-    return pd.DataFrame(all_results)
+    return pd.DataFrame(all_results, columns=cols)
 
 
 def aggregate_scores(model_info, base_path, representation, metric="truncated_unsupervised"):
@@ -50,6 +50,8 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
     for c in comb:
         to_keep.update({
             "evaluation_results.{}.gaussian_total_correlation".format(c): "{}.gaussian_total_correlation".format(c),
+            "evaluation_results.{}.normalized_gaussian_total_correlation".format(c):
+                "{}.normalized_gaussian_total_correlation".format(c),
             "evaluation_results.{}.mutual_info_score".format(c): "{}.mutual_info_score".format(c),
             "evaluation_results.{}.10:mean_test_accuracy".format(c): "{}.{}_10".format(c, m),
             "evaluation_results.{}.100:mean_test_accuracy".format(c): "{}.{}_100".format(c, m),
@@ -66,17 +68,12 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
     result_file_pattern = ["{}/{}/metrics/{}/{}/results/aggregate/evaluation.json"
                            .format(base_path, i, representation, metric)
                            for i in range(model_info.start_idx, model_info.end_idx + 1)]
-    df = get_files(result_file_pattern)
-    existing_cols = df.columns.intersection(all_cols.keys())
-    df = df[existing_cols]
+    df = get_files(result_file_pattern, all_cols)
+    # Remove any empty column (e.g., downstream task when doing unsupervised)
+    df = df.dropna(axis=1, how="all")
     df = df.rename(columns=all_cols, errors="ignore")
     df[["representation", "model", "dataset"]] = df[["representation", "model", "dataset"]].replace({"'": ""},
                                                                                                     regex=True)
-    col_ids = [c for c in df.columns.tolist() if "." not in c]
-    df = pd.melt(df, id_vars=col_ids, var_name="combination", value_name="score")
-    df[['combination', 'metric']] = df['combination'].str.split('.', 1, expand=True)
-    # df = df.pivot_table(index=["model_index", "combination"], columns=["metric"])
-    # df = df.droplevel(0, axis=1).rename_axis(None, axis=1).reset_index()
     return df
 
 
@@ -116,8 +113,6 @@ def aggregate_all_scores(base_path, out_path):
         # df2 = aggregate_scores(model_info, base_path, "mean", "truncated_downstream_task_logistic_regression")
         # df2 = df2.append(aggregate_scores(model_info, base_path, "sampled", "truncated_downstream_task_logistic_regression"))
         # df = df.merge(df2)
-        # Remove combinations with no associated score (e.g., active_passive with 0 passive variables)
-        df.dropna(subset=["score"], inplace=True)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
         df_list.append(df)
         # del df2

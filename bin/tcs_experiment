@@ -1,14 +1,14 @@
 import argparse
 import os
 
-from tc_study.utils.models import get_file
+from disentanglement_lib.config.unsupervised_study_v1 import sweep
+import tc_study.experiment.logged_vaes
 from tc_study.experiment.downstream_task_evaluation import compute_all_truncated_downstream_tasks
 from tc_study.experiment.histograms import compute_all_histograms
-from tc_study.experiment.variables_filter import compute_all_variable_indexes
-from tc_study.experiment.unsupervised_evaluation import compute_all_truncated_unsupervised_metrics
 from tc_study.experiment.postprocess import postprocess_models
-from disentanglement_lib.config.unsupervised_study_v1 import sweep
 from tc_study.experiment.train_models import train_with_gin
+from tc_study.experiment.unsupervised_evaluation import compute_all_truncated_unsupervised_metrics
+from tc_study.experiment.variables_filter import compute_all_variable_indexes
 
 
 def filter_variables(args):
@@ -29,7 +29,8 @@ def compute_downstream_tasks(args):
     if args.model_ids_range is not None:
         args.model_ids = range(*args.model_ids_range)
     compute_all_truncated_downstream_tasks(args.model_path, args.representation, model_ids=args.model_ids,
-                                           predictor=args.predictor, overwrite=args.overwrite, nb_proc=args.multiprocess)
+                                           predictor=args.predictor, overwrite=args.overwrite,
+                                           nb_proc=args.multiprocess)
 
 
 def launch_postprocess_models(args):
@@ -42,18 +43,23 @@ def launch_postprocess_models(args):
 def compute_histograms(args):
     if args.model_ids_range is not None:
         args.model_ids = range(*args.model_ids_range)
-    compute_all_histograms(args.model_path, args.representation, model_ids=args.model_ids, overwrite=args.overwrite, nb_proc=args.multiprocess)
+    compute_all_histograms(args.model_path, args.representation, model_ids=args.model_ids, overwrite=args.overwrite,
+                           nb_proc=args.multiprocess)
 
 
 def train(args):
     study = sweep.UnsupervisedStudyV1()
-    model_bindings = [b.replace("model.", "custom_model.") for b in study.get_model_config(args.model_num)[0]]
-    model_config_file = get_file("config/shared.gin")
+    model_bindings, model_config_file = study.get_model_config(args.model_num)
     model_dir = os.path.join(args.output_path, str(args.model_num))
-    model_bindings = ["custom_model.name = '{}'".format(os.path.basename(model_config_file)).replace(".gin", ""),
-                      "custom_model.model_num = {}".format(args.model_num),
-                      "custom_model.keep_checkpoint_max = {}".format(args.num_checkpoint),
-                      "custom_model.save_checkpoints_steps = {}".format(args.save_checkpoints_steps)] + model_bindings
+    model_bindings = ["model.name = '{}'".format(os.path.basename(model_config_file)).replace(".gin", ""),
+                      "model.model_num = {}".format(args.model_num),
+                      "model.keep_checkpoint_max = {}".format(args.num_checkpoint),
+                      "model.save_checkpoints_steps = {}".format(args.save_checkpoints_steps),
+                      "model.batch_size = 64",
+                      "model.training_steps = 300000",
+                      ] + model_bindings
+    # Replace vae model name with the one suffixed with logged to add additional histograms to tensorboard
+    model_bindings = [b.replace("vae", "vae_logged").replace("model.", "custom_model.") for b in model_bindings]
     train_with_gin(model_dir, args.overwrite, [model_config_file], model_bindings)
 
 
@@ -92,7 +98,7 @@ if __name__ == "__main__":
     gh = hist.add_mutually_exclusive_group()
     gh.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to postprocess")
     gh.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
-                     help="Range of ID of the models to postprocess")
+                    help="Range of ID of the models to postprocess")
     hist.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
     hist.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
                       help="UNSTABLE: Performs distributed computation")

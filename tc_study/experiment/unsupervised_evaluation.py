@@ -14,7 +14,17 @@ from tc_study.experiment.utils import get_variables_idx, get_model_paths, gin_ev
 from tc_study.utils.tf_config import set_cpu_option
 
 
-def compute_unsupervised_metrics(idxs_to_keep, cov_mus, mus_discrete, prefix):
+def _get_truncated_square_matrix(source_mat, idxs_to_keep):
+    num_codes = len(idxs_to_keep)
+    source_idxs = tuple(map(list, (zip(*combinations_with_replacement(idxs_to_keep, 2)))))
+    target_mat = np.zeros((num_codes, num_codes))
+    target_idxs = np.triu_indices(num_codes)
+    target_mat[target_idxs] = source_mat[source_idxs]
+    target_mat = target_mat.T + target_mat - np.diag(np.diag(target_mat))
+    return target_mat
+
+
+def compute_unsupervised_metrics(idxs_to_keep, cov_mus, corr_mus, mus_discrete, prefix):
     scores = {}
     num_codes = len(idxs_to_keep)
     if num_codes < 2:
@@ -22,17 +32,18 @@ def compute_unsupervised_metrics(idxs_to_keep, cov_mus, mus_discrete, prefix):
 
     if len(idxs_to_keep) == cov_mus.shape[0]:
         cov = cov_mus
+        corr = corr_mus
         discrete = mus_discrete
     else:
-        # Create a covariance matrix and discrete representation containing only the latent factors of interest
-        source_idxs = tuple(map(list, (zip(*combinations_with_replacement(idxs_to_keep, 2)))))
-        cov = np.zeros((num_codes, num_codes))
-        target_idxs = np.triu_indices(num_codes)
-        cov[target_idxs] = cov_mus[source_idxs]
-        cov = cov.T + cov - np.diag(np.diag(cov))
+        # Create a covariance, correlation matrices and discrete representation containing only the latent factors
+        # of interest
+        cov = _get_truncated_square_matrix(cov_mus, idxs_to_keep)
+        corr = _get_truncated_square_matrix(corr_mus, idxs_to_keep)
+
         discrete = mus_discrete[idxs_to_keep]
 
     scores["{}.gaussian_total_correlation".format(prefix)] = dlib_um.gaussian_total_correlation(cov)
+    scores["{}.normalized_gaussian_total_correlation".format(prefix)] = dlib_um.gaussian_total_correlation(corr)
     scores["{}.gaussian_wasserstein_correlation".format(prefix)] = dlib_um.gaussian_wasserstein_correlation(cov)
     mutual_info_matrix = dlib_utils.discrete_mutual_info(discrete, discrete)
     np.fill_diagonal(mutual_info_matrix, 0)
@@ -73,10 +84,11 @@ def truncated_unsupervised_metrics(ground_truth_data, representation_function, r
     num_codes = mus_train.shape[0]
     mus_discrete = dlib_utils.make_discretizer(mus_train)
     cov_mus = np.cov(mus_train)
+    corr_mus = np.corrcoef(mus_train)
     assert num_codes == cov_mus.shape[0]
 
     # Compute full scores
-    scores.update(compute_unsupervised_metrics(range(num_codes), cov_mus, mus_discrete, "full"))
+    scores.update(compute_unsupervised_metrics(range(num_codes), cov_mus, corr_mus, mus_discrete, "full"))
 
     # Compute truncated scores combining all possible combinations of variable type
     variables = {"active": active_variables_idx, "passive": passive_variables_idx, "mixed": mixed_variables_idx}
@@ -85,11 +97,11 @@ def truncated_unsupervised_metrics(ground_truth_data, representation_function, r
                       if len(variables[v1]) > 0 and len(variables[v2]) > 0})
 
     for suffix, indexes in variables.items():
-        scores.update(compute_unsupervised_metrics(indexes, cov_mus, mus_discrete, suffix))
+        scores.update(compute_unsupervised_metrics(indexes, cov_mus, corr_mus, mus_discrete, suffix))
     scores["num_passive_variables"] = len(passive_variables_idx)
     scores["num_mixed_variables"] = len(mixed_variables_idx)
     scores["num_active_variables"] = len(active_variables_idx)
-    scores["correlation_matrix"] = np.corrcoef(cov_mus).tolist()
+    scores["correlation_matrix"] = corr_mus.tolist()
     scores["covariance_matrix"] = cov_mus.tolist()
     return scores
 
@@ -116,7 +128,7 @@ def compute_truncated_unsupervised_metrics(path, representation, overwrite=True,
     ]
     path = pathlib.Path(path)
     result_path = path.parent.parent / "metrics" / representation / "truncated_unsupervised"
-    truncation_file = (path.parent.parent / "metrics" / "mean" / "filtered_variables" / "results" / "aggregate"
+    truncation_file = (path.parent.parent / "metrics" / "variance" / "filtered_variables" / "results" / "aggregate"
                        / "evaluation.json")
     idxs = ["truncated_unsupervised_metrics.{} = {}".format(k, v)
             for k, v in get_variables_idx(truncation_file).items()]

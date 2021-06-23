@@ -17,8 +17,7 @@ from tc_study.utils.tf_config import set_cpu_option
     blacklist=["ground_truth_data", "representation_function", "random_state", "artifact_dir"])
 def histograms(ground_truth_data, representation_function, random_state, artifact_dir=None,
                num_train=gin.REQUIRED, batch_size=16):
-    """Computes total correlation and mutual information scores based on the implementation of unsupervised_metrics
-     function from disentanglement lib and evaluate on all possible combinations of passive, mixed, and active variables
+    """Computes histograms
 
     :param ground_truth_data: GroundTruthData to be sampled from.
     :param representation_function: Function that takes observations as input and outputs a dim_representation sized

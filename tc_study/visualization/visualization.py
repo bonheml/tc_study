@@ -5,11 +5,11 @@ import os
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import matplotlib.patches as mpatches
 from tc_study.visualization import logger
 from tc_study.visualization.utils import get_variables_combinations, get_model_files
 
-sns.set(font_scale=1.5)
+sns.set(font_scale=1.2)
 sns.set_style("whitegrid", {'axes.grid': False, 'legend.labelspacing': 1.2})
 
 
@@ -20,51 +20,55 @@ def save_figure(out_fname, dpi=300):
     plt.close()
 
 
-def draw_truncated_scores(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
+def draw_truncated_scores(in_fname, out_path, y_label="full.gaussian_total_correlation", ci=None):
     """ Generate and save a line plot of mean and sampled unsupervised score for a given model and dataset with one
     hyper-parameter of increasing value.
 
     :param in_fname: The tsv in_fname containing unsupervised scores of models along with the dataset, representation,
     model index, model type and hyper-parameter values.
     :param out_path: path where the pdf graph will be saved
-    :param y_label: label to use for y axis. Can be gaussian_total_correlation, gaussian_wasserstein_correlation,
-    gaussian_wasserstein_correlation_norm, or mutual_info_score. Default is gaussian_total_correlation
+    :param y_label: label to use for y axis. Can be gaussian_total_correlation, or mutual_info_score along with any
+    active/mixed/passive combination.
+    Default is full gaussian_total_correlation
     :param ci: the error bar to use in graph. If None, no error bar will appear.
     :return: None
     """
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
     model = df.model.iloc[0]
     dataset = df.dataset.iloc[0]
+    if y_label not in df.columns:
+        return
+    text_y_label = "_".join(y_label.split("."))
     if ci:
-        out_fname = "{}/truncated_{}_{}_{}_sd_plot.pdf".format(out_path, y_label, model, dataset)
+        out_fname = "{}/{}_{}_{}_sd_plot.pdf".format(out_path, text_y_label, model, dataset)
     else:
-        out_fname = "{}/truncated_{}_{}_{}_plot.pdf".format(out_path, y_label, model, dataset)
+        out_fname = "{}/{}_{}_{}_plot.pdf".format(out_path, text_y_label, model, dataset)
     x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
     x_label = list(df.columns.intersection(x_labels))[0]
-    g = sns.catplot(data=df, x=x_label, y=y_label, col="combination", hue="representation", ci=ci, kind="point",
-                    linestyles=["-", "--"], markers=["o", "x"], legend_out=False, dodge=False, col_wrap=2)
-    g.set_axis_labels(x_label.replace("_", " ").capitalize(), y_label.replace("_", " ").capitalize())
 
+    g = sns.catplot(data=df, x=x_label, y=y_label, hue="representation", ci=ci, kind="point",
+                    linestyles=["-", "--"], markers=["o", "x"], legend_out=False, dodge=False)
+    g.set_axis_labels(x_label.replace("tc_", "").replace("_", " ").capitalize(), text_y_label.replace("_", " ").capitalize())
     plt.tight_layout()
     save_figure(out_fname)
 
 
-def draw_synthetic_scores(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
-    df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
-    params = df.cov_min.unique()[0], df.cov_max.unique()[0]
-    param_name = "cov"
-    base_fname = "{}/truncated_factors_{}_{}_{}_{}_{}_noise_{}".format(out_path, y_label, df.num_factors.unique()[0],
-                                                                       param_name, params[0], params[1],
-                                                                       df.noise_strength.unique()[0])
-    out_fname = "{}_sd_plot.pdf".format(base_fname) if ci else "{}_plot.pdf".format(base_fname)
-    df["passive_variables"] = df.num_factors - df.active_variables
-
-    g = sns.relplot(data=df, x="passive_variables", y=y_label, col="combination", hue="representation",
-                    style="representation", kind="line", col_wrap=2)
-    g.set_axis_labels("Passive variables", y_label.replace("_", " ").capitalize())
-
-    plt.tight_layout()
-    save_figure(out_fname)
+# def draw_synthetic_scores(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
+#     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
+#     params = df.cov_min.unique()[0], df.cov_max.unique()[0]
+#     param_name = "cov"
+#     base_fname = "{}/truncated_factors_{}_{}_{}_{}_{}_noise_{}".format(out_path, y_label, df.num_factors.unique()[0],
+#                                                                        param_name, params[0], params[1],
+#                                                                        df.noise_strength.unique()[0])
+#     out_fname = "{}_sd_plot.pdf".format(base_fname) if ci else "{}_plot.pdf".format(base_fname)
+#     df["passive_variables"] = df.num_factors - df.active_variables
+#
+#     g = sns.relplot(data=df, x="passive_variables", y=y_label, col="combination", hue="representation",
+#                     style="representation", kind="line", col_wrap=2)
+#     g.set_axis_labels("Passive variables", y_label.replace("_", " ").capitalize())
+#
+#     plt.tight_layout()
+#     save_figure(out_fname)
 
 
 def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="global_results.tsv"):
@@ -73,19 +77,20 @@ def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="globa
     all_files = glob.glob("{}/*.tsv".format(in_path))
     all_files.remove(glob_file)
     for file in all_files:
-        draw_truncated_scores(file, out_path, y_label)
-        draw_truncated_scores(file, out_path, y_label, ci="sd")
+        for comb in get_variables_combinations():
+            draw_truncated_scores(file, out_path, y_label="{}.{}".format(comb, y_label))
+            # draw_truncated_scores(file, out_path,  y_label="{}.{}".format(comb, y_label), ci="sd")
 
 
-def draw_all_synthetic_scores(in_path, out_path, y_label):
-    in_path = in_path.rstrip("/")
-    all_files = glob.glob("{}/*.tsv".format(in_path))
-    for file in all_files:
-        draw_synthetic_scores(file, out_path, y_label)
-        draw_truncated_scores(file, out_path, y_label, ci="sd")
+# def draw_all_synthetic_scores(in_path, out_path, y_label):
+#     in_path = in_path.rstrip("/")
+#     all_files = glob.glob("{}/*.tsv".format(in_path))
+#     for file in all_files:
+#         draw_synthetic_scores(file, out_path, y_label)
+#         draw_truncated_scores(file, out_path, y_label, ci="sd")
 
 
-def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
+def draw_tc_vp(in_fname, out_path, y_label="full.gaussian_total_correlation", ci=None):
     """ Generate and save a line plot of an unsupervised metric score along with an histogram of passive variables for
     a given model and dataset with one hyper-parameter of increasing value.
 
@@ -99,21 +104,21 @@ def draw_tc_vp(in_fname, out_path, y_label="gaussian_total_correlation", ci=None
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
     model = df.model.iloc[0]
     dataset = df.dataset.iloc[0]
-
+    text_y_label = "_".join(y_label.split("."))
     if ci:
-        out_fname = "{}/passive_variables_{}_{}_{}_sd_plot.pdf".format(out_path, y_label, model, dataset)
+        out_fname = "{}/passive_variables_{}_{}_{}_sd_plot.pdf".format(out_path, text_y_label, model, dataset)
     else:
-        out_fname = "{}/passive_variables_{}_{}_{}_plot.pdf".format(out_path, y_label, model, dataset)
+        out_fname = "{}/passive_variables_{}_{}_{}_plot.pdf".format(out_path, text_y_label, model, dataset)
     x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
     x_label = list(df.columns.intersection(x_labels))[0]
     fig, ax1 = plt.subplots()
 
-    sns.barplot(data=df, x=x_label, y="num_passive_variables", palette="viridis", ax=ax1, alpha=0.5)
+    sns.barplot(data=df, x=x_label, y="num_passive_variables", palette="viridis", ax=ax1, alpha=0.5, ci=None)
     ax2 = ax1.twinx()
     sns.pointplot(data=df, x=x_label, y=y_label, ax=ax2, ci=ci, hue="representation", linestyles=["-", "--"],
                   markers=["o", "x"])
 
-    ax1.set_xlabel(x_label.replace("_", " ").capitalize())
+    ax1.set_xlabel(x_label.replace("tc_", "").replace("_", " ").capitalize())
     ax1.set_ylabel("Passive variables (averaged)")
     ax2.set_ylabel(y_label.split(".")[1].replace("_", " ").capitalize())
 
@@ -127,7 +132,44 @@ def draw_all_tc_vp(in_path, out_path, y_label, global_res_file="global_results.t
     all_files = glob.glob("{}/*.tsv".format(in_path))
     all_files.remove(glob_file)
     for file in all_files:
-        draw_tc_vp(file, out_path, y_label)
+        draw_tc_vp(file, out_path, y_label="full.{}".format(y_label))
+        # draw_tc_vp(file, out_path, y_label, ci="sd")
+
+
+def draw_stacked_variables_count(in_fname, out_path):
+    df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
+    model = df.model.iloc[0]
+    dataset = df.dataset.iloc[0]
+    out_fname = "{}/variables_types_{}_{}_plot.pdf".format(out_path, model, dataset)
+    x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
+    x_label = list(df.columns.intersection(x_labels))[0]
+    df["num_variables"] = 10
+    df["passive_mixed"] = df[["num_passive_variables", "num_mixed_variables"]].sum(axis=1)
+
+    fig, ax = plt.subplots()
+    active, mixed, passive = sns.color_palette()[:3]
+    total_bar = sns.barplot(x=x_label, y="num_variables", data=df, color=active, ci=None)
+    mixed_passive_bar = sns.barplot(x=x_label, y="passive_mixed", data=df, color=mixed,  ci=None)
+    passive_bar = sns.barplot(x=x_label, y="num_passive_variables", data=df, color=passive, ci=None)
+
+    top_bar = mpatches.Patch(color=active, label="Active variables")
+    middle_bar = mpatches.Patch(color=mixed, label="Mixed variables")
+    bottom_bar = mpatches.Patch(color=passive, label="Passive variables")
+    plt.legend(handles=[top_bar, middle_bar, bottom_bar], loc="lower right")
+
+    ax.set_xlabel(x_label.replace("tc_", "").replace("_", " ").capitalize())
+    ax.set_ylabel("Number of variables (averaged)")
+
+    fig.tight_layout()
+    save_figure(out_fname)
+
+
+def draw_all_stacked_variable_counts(in_path, out_path, global_res_file="global_results.tsv"):
+    glob_file = "{}/{}".format(in_path, global_res_file)
+    all_files = glob.glob("{}/*.tsv".format(in_path))
+    all_files.remove(glob_file)
+    for file in all_files:
+        draw_stacked_variables_count(file, out_path)
         # draw_tc_vp(file, out_path, y_label, ci="sd")
 
 

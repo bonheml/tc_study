@@ -1,12 +1,15 @@
 import argparse
 
-from tc_study.visualization.visualization import draw_all_tc_vp, draw_all_downstream_task_reg, \
-    draw_all_synthetic_scores, draw_all_histograms
-from tc_study.visualization.visualization import draw_all_truncated_scores
+from tc_study.visualization.visualization import draw_all_tc_vp, draw_all_downstream_task_reg, draw_all_histograms
+from tc_study.visualization.visualization import draw_all_truncated_scores, draw_all_stacked_variable_counts
 
 
 def draw_passive_variables(args):
     draw_all_tc_vp(args.data_path, args.output_path, args.metric)
+
+
+def draw_stacked_variables(args):
+    draw_all_stacked_variable_counts(args.data_path, args.output_path)
 
 
 def draw_downstream_task_scores(args):
@@ -17,10 +20,6 @@ def draw_truncated_scores(args):
     draw_all_truncated_scores(args.data_path, args.output_path, args.metric)
 
 
-def draw_synthetic_scores(args):
-    draw_all_synthetic_scores(args.data_path, args.output_path, args.metric)
-
-
 def draw_histograms(args):
     repr = ["mean", "sampled", "variance"] if args.representation == "all" else [args.representation]
     for r in repr:
@@ -29,7 +28,7 @@ def draw_histograms(args):
 
 if __name__ == "__main__":
     # /media/bonheml/phd_data/VAE_TC_study/aggregated_results
-    metric_choices = ["gaussian_total_correlation", "discrete_mutual_info_score"]
+    metric_choices = ["gaussian_total_correlation", "mutual_info_score"]
     parser = argparse.ArgumentParser(description="Reproduce figures from the paper")
     subparsers = parser.add_subparsers()
 
@@ -38,6 +37,11 @@ if __name__ == "__main__":
     pv.add_argument("output_path", type=str, help="Path where the figures will be stored")
     pv.add_argument("metric", type=str, choices=metric_choices, help="Metric to use")
     pv.set_defaults(func=draw_passive_variables)
+
+    sv = subparsers.add_parser("stacked_variables", aliases=["sv"])
+    sv.add_argument("data_path", type=str, help="Path where the aggregated results are stored")
+    sv.add_argument("output_path", type=str, help="Path where the figures will be stored")
+    sv.set_defaults(func=draw_stacked_variables)
 
     dt = subparsers.add_parser("downstream_task", aliases=["dt"])
     dt.add_argument("data_path", type=str, help="Path where the aggregated results are stored")
@@ -56,12 +60,6 @@ if __name__ == "__main__":
     ld.add_argument("--representation", "-r", type=str, default="all", choices=["all", "mean", "sampled", "variance"],
                     help="Latent representation to use")
     ld.set_defaults(func=draw_histograms)
-
-    ss = subparsers.add_parser("synthetic_scores", aliases=["ss"])
-    ss.add_argument("data_path", type=str, help="Path where the aggregated results are stored")
-    ss.add_argument("output_path", type=str, help="Path where the figures will be stored")
-    ss.add_argument("metric", type=str, choices=metric_choices, help="Metric to use")
-    ss.set_defaults(func=draw_synthetic_scores)
 
     res = parser.parse_args()
     res.func(res)
