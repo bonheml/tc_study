@@ -1,3 +1,4 @@
+import ast
 import multiprocessing
 
 import numpy as np
@@ -34,7 +35,6 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
     :return: A dataframe containing the TC scores of models matching <model_info> along with the dataset, representation,
     model index, model type and hyper-parameter values.
     """
-    m = remove_prefix(metric, "truncated_downstream_task_")
     comb = get_variables_combinations()
     to_keep = {"postprocess_config.dataset.name": "dataset",
                "postprocess_config.postprocess.name": "representation",
@@ -47,16 +47,13 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
                "evaluation_results.correlation_matrix": "correlation_matrix",
                "evaluation_results.mutual_info_matrix": "mutual_info_matrix",
                }
+    comb_dict = {"evaluation_results.random:mean_test_accuracy": "random.mean_test_accuracy"}
     for c in comb:
-        to_keep.update({
+        comb_dict.update({
             "evaluation_results.{}.gaussian_total_correlation".format(c): "{}.gaussian_total_correlation".format(c),
-            "evaluation_results.{}.normalized_gaussian_total_correlation".format(c):
-                "{}.normalized_gaussian_total_correlation".format(c),
             "evaluation_results.{}.mutual_info_score".format(c): "{}.mutual_info_score".format(c),
-            "evaluation_results.{}.10:mean_test_accuracy".format(c): "{}.{}_10".format(c, m),
-            "evaluation_results.{}.100:mean_test_accuracy".format(c): "{}.{}_100".format(c, m),
-            "evaluation_results.{}.1000:mean_test_accuracy".format(c): "{}.{}_1000".format(c, m),
-            "evaluation_results.{}.10000:mean_test_accuracy".format(c): "{}.{}_10000".format(c, m)})
+            "evaluation_results.{}:mean_test_accuracy".format(c): "{}.mean_test_accuracy".format(c)
+        })
 
     model_params = {"train_config.dip_vae.lambda_od": "lambda_od",
                     "train_config.beta_tc_vae.beta": "tc_beta",
@@ -65,15 +62,17 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
                     "train_config.vae.beta": "beta"}
 
     all_cols = dict(to_keep, **model_params)
+    all_cols.update(comb_dict)
     result_file_pattern = ["{}/{}/metrics/{}/{}/results/aggregate/evaluation.json"
                            .format(base_path, i, representation, metric)
                            for i in range(model_info.start_idx, model_info.end_idx + 1)]
     df = get_files(result_file_pattern, all_cols)
+    df = df.rename(columns=all_cols, errors="ignore")
     # Remove any empty column (e.g., downstream task when doing unsupervised)
     df = df.dropna(axis=1, how="all")
-    df = df.rename(columns=all_cols, errors="ignore")
     df[["representation", "model", "dataset"]] = df[["representation", "model", "dataset"]].replace({"'": ""},
                                                                                                     regex=True)
+
     return df
 
 
@@ -110,11 +109,15 @@ def aggregate_all_scores(base_path, out_path):
         logger.info("Aggregating unsupervised scores of {} on {}".format(model_info.model, model_info.dataset))
         df = aggregate_scores(model_info, base_path, "sampled")
         df = df.append(aggregate_scores(model_info, base_path, "mean"), ignore_index=True)
-        # df2 = aggregate_scores(model_info, base_path, "mean", "truncated_downstream_task_logistic_regression")
-        # df2 = df2.append(aggregate_scores(model_info, base_path, "sampled", "truncated_downstream_task_logistic_regression"))
-        # df = df.merge(df2)
+        df2 = aggregate_scores(model_info, base_path, "sampled", "truncated_downstream_task_logistic_regression")
+        df2 = df2.append(aggregate_scores(model_info, base_path, "mean",
+                                          "truncated_downstream_task_logistic_regression"))
+        df2 = df2.drop(["num_passive_variables", "num_mixed_variables", "num_active_variables"], axis=1,
+                       errors="ignore")
+        df = df.merge(df2)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
         df_list.append(df)
-        # del df2
+        print(df.tail(20))
+        del df2
     main_df = get_aggregated_version(df_list)
     main_df.to_csv("{}/global_results.tsv".format(out_path), sep="\t", index=False)

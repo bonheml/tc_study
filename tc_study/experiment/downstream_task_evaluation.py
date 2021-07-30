@@ -71,10 +71,22 @@ def truncated_downstream_task(ground_truth_data, representation_function, random
     mus_train, ys_train = dlib_utils.generate_batch_factor_code(
         ground_truth_data, representation_function, num_train, random_state,
         batch_size)
+    # Prevent Nan values that can occur for smallNorb dataset
+    while np.isnan(np.sum(mus_train)) or np.isinf(np.sum(mus_train)):
+        logger.warning("Nan value found, resampling training data")
+        mus_train, ys_train = dlib_utils.generate_batch_factor_code(
+            ground_truth_data, representation_function, num_train, random_state,
+            batch_size)
     num_codes = mus_train.shape[0]
     mus_test, ys_test = dlib_utils.generate_batch_factor_code(
         ground_truth_data, representation_function, num_test, random_state,
         batch_size)
+    # Prevent Nan values that can occur for smallNorb dataset
+    while np.isnan(np.sum(mus_test)) or np.isinf(np.sum(mus_test)):
+        logger.warning("Nan value found, resampling testing data")
+        mus_test, ys_test = dlib_utils.generate_batch_factor_code(
+            ground_truth_data, representation_function, num_test, random_state,
+            batch_size)
 
     variables = {"active": active_variables_idx, "passive": passive_variables_idx, "mixed": mixed_variables_idx}
     variables.update({"{}_{}".format(v1, v2): variables[v1] + variables[v2]
@@ -86,8 +98,8 @@ def truncated_downstream_task(ground_truth_data, representation_function, random
     scores = compute_truncated_downstream_task(range(num_codes), mus_train, ys_train, mus_test, ys_test, "full")
 
     # Compute dummy classifier downstream task scores
-    logger.info("Computing dummy score")
-    scores.update(compute_truncated_downstream_task(range(num_codes), mus_train, ys_train, mus_test, ys_test, "dummy"))
+    logger.info("Computing random score")
+    scores.update(compute_truncated_downstream_task(range(num_codes), mus_train, ys_train, mus_test, ys_test, "random"))
 
     # Compute truncated downstream task scores combining all possible combinations of variable type
     for prefix, indexes in variables.items():
@@ -99,7 +111,9 @@ def truncated_downstream_task(ground_truth_data, representation_function, random
             copy_full_score(ys_train.shape[0], scores, prefix)
         else:
             scores.update(compute_truncated_downstream_task(indexes, mus_train, ys_train, mus_test, ys_test, prefix))
-
+    scores["num_passive_variables"] = len(passive_variables_idx)
+    scores["num_mixed_variables"] = len(mixed_variables_idx)
+    scores["num_active_variables"] = len(active_variables_idx)
     return scores
 
 

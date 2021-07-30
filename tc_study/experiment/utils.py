@@ -14,6 +14,7 @@ def get_model_paths(base_path, representation, model_ids=None):
     df = pd.DataFrame(configs)
     to_process = model_ids if model_ids is not None else range(10800)
     to_process = set(to_process) - set(df.index[df["model.name"] == "dip_vae_i"].to_list()) - set(df.index[df["dataset.name"] == "shapes3d"].to_list())
+    to_process = sorted(list(to_process))
     model_paths = ["{}/{}/postprocessed/{}".format(base_path, i, representation) for i in to_process]
     return model_paths
 

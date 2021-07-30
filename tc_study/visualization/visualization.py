@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 from tc_study.visualization import logger
 from tc_study.visualization.utils import get_variables_combinations, get_model_files
 
-sns.set(font_scale=1.2)
+#sns.set(font_scale=1.2)
 sns.set_style("whitegrid", {'axes.grid': False, 'legend.labelspacing': 1.2})
 
 
@@ -52,25 +52,6 @@ def draw_truncated_scores(in_fname, out_path, y_label="full.gaussian_total_corre
     plt.tight_layout()
     save_figure(out_fname)
 
-
-# def draw_synthetic_scores(in_fname, out_path, y_label="gaussian_total_correlation", ci=None):
-#     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
-#     params = df.cov_min.unique()[0], df.cov_max.unique()[0]
-#     param_name = "cov"
-#     base_fname = "{}/truncated_factors_{}_{}_{}_{}_{}_noise_{}".format(out_path, y_label, df.num_factors.unique()[0],
-#                                                                        param_name, params[0], params[1],
-#                                                                        df.noise_strength.unique()[0])
-#     out_fname = "{}_sd_plot.pdf".format(base_fname) if ci else "{}_plot.pdf".format(base_fname)
-#     df["passive_variables"] = df.num_factors - df.active_variables
-#
-#     g = sns.relplot(data=df, x="passive_variables", y=y_label, col="combination", hue="representation",
-#                     style="representation", kind="line", col_wrap=2)
-#     g.set_axis_labels("Passive variables", y_label.replace("_", " ").capitalize())
-#
-#     plt.tight_layout()
-#     save_figure(out_fname)
-
-
 def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="global_results.tsv"):
     in_path = in_path.rstrip("/")
     glob_file = "{}/{}".format(in_path, global_res_file)
@@ -80,14 +61,6 @@ def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="globa
         for comb in get_variables_combinations():
             draw_truncated_scores(file, out_path, y_label="{}.{}".format(comb, y_label))
             # draw_truncated_scores(file, out_path,  y_label="{}.{}".format(comb, y_label), ci="sd")
-
-
-# def draw_all_synthetic_scores(in_path, out_path, y_label):
-#     in_path = in_path.rstrip("/")
-#     all_files = glob.glob("{}/*.tsv".format(in_path))
-#     for file in all_files:
-#         draw_synthetic_scores(file, out_path, y_label)
-#         draw_truncated_scores(file, out_path, y_label, ci="sd")
 
 
 def draw_tc_vp(in_fname, out_path, y_label="full.gaussian_total_correlation", ci=None):
@@ -173,46 +146,44 @@ def draw_all_stacked_variable_counts(in_path, out_path, global_res_file="global_
         # draw_tc_vp(file, out_path, y_label, ci="sd")
 
 
-def draw_downstream_task_reg(in_fname, out_path, metric="full.gaussian_total_correlation",
-                             ds_task="full.logistic_regression_1000", representation="mean"):
-    """ Generate and save a line plot of unsupervised comparison score and downstream task score for a given model and
+def draw_downstream_task_reg(in_fname, out_path, ds_task, representation="mean"):
+    """ Generate and save a line plot of downstream task score for different variable types of a given model and
     dataset with one hyper-parameter of increasing value.
 
     :param in_fname: The tsv in_fname containing unsupervised scores of models along with the dataset, representation,
     model index, model type and hyper-parameter values.
     :param out_path: path where the pdf graph will be saved
-    :param metric: the metric to use, default is gaussian TC
     :param ds_task: the downstream task to plot
     :param representation: the representation, either mean or sampled. default is mean
     :return:
     """
     df = pd.read_csv(in_fname, index_col=None, header=0, sep="\t")
     df = df[df.representation == representation]
-    out_fname = "{}/{}_{}_{}_{}_{}_plot.pdf".format(out_path, ds_task, metric, df.model.iloc[0], df.dataset.iloc[0],
-                                                    representation)
-    fig, ax1 = plt.subplots()
-    ax2 = ax1.twinx()
+    out_fname = "{}/{}_{}_{}_{}_plot.pdf".format(out_path, ds_task, df.model.iloc[0], df.dataset.iloc[0], representation)
     x_labels = ["beta", "c_max", "gamma", "lambda_od", "tc_beta"]
     x_label = list(df.columns.intersection(x_labels))[0]
-    sns.pointplot(data=df, x=x_label, y=metric, ax=ax1)
-    sns.pointplot(data=df, x=x_label, lines="---", y=ds_task, ax=ax2)
-    x_label = x_label.replace("_", " ").capitalize()
-    ax1.set(xlabel=x_label, ylabel=metric.replace("_", " ").capitalize())
-    ax2.set(xlabel=x_label, ylabel=ds_task.replace("_", " ").capitalize())
+    combs = ["{}.mean_test_accuracy".format(c) for c in ["random", *get_variables_combinations()]]
+    combs = list(df.columns.intersection(combs))
+    to_keep = {"model_index", "representation", x_label}
+    to_drop = set(df.columns.values) - set(combs) - to_keep
+    df = df.drop(to_drop, axis=1)
+    df = df.melt(id_vars=list(to_keep), value_vars=combs, var_name="combination", value_name="accuracy")
+    df["combination"] = df["combination"].apply(lambda x: x.split(".")[0])
+    fig, ax = plt.subplots()
+
+    sns.lineplot(data=df, x=x_label, y="accuracy", hue="combination", style="combination")
     fig.tight_layout()
 
     save_figure(out_fname)
 
 
-def draw_all_downstream_task_reg(in_path, out_path, metric="gaussian_total_correlation",
-                                 ds_task="logistic_regression_1000", global_res_file="global_results.tsv"):
-    glob_file = "{}/{}".format(in_path, global_res_file)
+def draw_all_downstream_task_reg(in_path, out_path, ds_task="logistic_regression_10000", global_res_file="global_results.tsv"):
+    glob_file = "{}/{}".format(in_path, global_res_file).replace("//", "/")
     all_files = glob.glob("{}/*.tsv".format(in_path))
     all_files.remove(glob_file)
     for file in all_files:
-        for comb in get_variables_combinations():
-            draw_downstream_task_reg(file, out_path, metric="{}.{}".format(comb, metric),
-                                     ds_task="{}.{}".format(comb, ds_task))
+        draw_downstream_task_reg(file, out_path, ds_task)
+        draw_downstream_task_reg(file, out_path, ds_task, "sampled")
 
 
 def draw_model_histograms(in_fname, out_path, representation="mean"):
