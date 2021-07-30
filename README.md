@@ -95,3 +95,45 @@ tcs_visualize_results dt <results_path> <output_path>
 ```
 where `<results_path>` is the path to your aggregated results, and `<output_path>` the path where the
 figures will be stored.
+
+#### Observing correlation of passive variables
+
+First the model need to be retrained so that it is saved at multiple timesteps
+
+```bash
+tcs_experiment tr <output_path> <model_num>
+```
+where output_path is the path where the model will be saved and model_num the ID of the model
+to train. Please refer to disentanglement lib to get the model ids.
+
+Once the model has been retrained, the correlation and covariance scores can be retrieved
+as follows:
+
+```Python
+import glob
+import json
+import numpy as np
+
+files = glob.glob("<output_path>/<model_num>/*/metrics/mean/truncated_unsupervised/results/aggregate/evaluation.json")
+corrs = []
+covars = []
+for file in files:
+    with open(file) as f:
+        res = json.load(f)
+        corrs.append(np.array(res["evaluation_results.correlation_matrix"]))
+        covars.append(np.array(res["evaluation_results.covariance_matrix"]))
+```
+where model_num and output_path are the parameters you choose during the training step.
+
+To observe factor to factor relationship over time one can transform the existing numpy arrays using:
+```Python
+import pandas as pd
+
+df = []
+
+for i in range(10):
+    for j in range(10):
+        df += [{"factor_1": i, "factor_2": j, "correlation": corrs[n][i, j], "covariance":covars[n][i, j], 
+                "step": n} for n in range(300)]
+df = pd.DataFrame(df)
+```
