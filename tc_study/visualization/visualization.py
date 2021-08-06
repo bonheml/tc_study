@@ -171,7 +171,7 @@ def draw_downstream_task_reg(in_fname, out_path, ds_task, representation="mean")
     df["combination"] = df["combination"].apply(lambda x: x.split(".")[0])
     fig, ax = plt.subplots()
 
-    sns.lineplot(data=df, x=x_label, y="accuracy", hue="combination", style="combination")
+    sns.lineplot(data=df, x=x_label, y="accuracy", hue="combination", style="combination", dashes=False, markers=True, palette='Dark2', ci=None, alpha=0.6, ms=18)
     fig.tight_layout()
 
     save_figure(out_fname)
