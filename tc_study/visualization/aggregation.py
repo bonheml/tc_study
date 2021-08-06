@@ -117,7 +117,6 @@ def aggregate_all_scores(base_path, out_path):
         df = df.merge(df2)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
         df_list.append(df)
-        print(df.tail(20))
         del df2
     main_df = get_aggregated_version(df_list)
     main_df.to_csv("{}/global_results.tsv".format(out_path), sep="\t", index=False)
