@@ -15,7 +15,7 @@ from tc_study.experiment.utils import get_variables_idx, get_model_paths, gin_ev
 
 def compute_truncated_downstream_task(idxs_to_keep, mus_train, ys_train, mus_test, ys_test, prefix):
     scores = {}
-    if prefix == "dummy":
+    if prefix == "random":
         predictor_model = lambda: DummyClassifier(strategy="uniform")
     else:
         predictor_model = dlib_utils.make_predictor_fn()
