@@ -28,7 +28,7 @@ def draw_histograms(args):
 
 if __name__ == "__main__":
     # /media/bonheml/phd_data/VAE_TC_study/aggregated_results
-    metric_choices = ["gaussian_total_correlation", "mutual_info_score"]
+    metric_choices = ["gaussian_total_correlation", "mutual_info_score", "effective_rank"]
     parser = argparse.ArgumentParser(description="Reproduce figures from the paper")
     subparsers = parser.add_subparsers()
 

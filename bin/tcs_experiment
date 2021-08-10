@@ -4,6 +4,7 @@ import os
 from disentanglement_lib.config.unsupervised_study_v1 import sweep
 import tc_study.experiment.logged_vaes
 from tc_study.experiment.downstream_task_evaluation import compute_all_truncated_downstream_tasks
+from tc_study.experiment.effective_rank import compute_all_effective_ranks
 from tc_study.experiment.histograms import compute_all_histograms
 from tc_study.experiment.postprocess import postprocess_models
 from tc_study.experiment.train_models import train_with_gin
@@ -23,6 +24,13 @@ def compute_unsupervised_metrics(args):
         args.model_ids = range(*args.model_ids_range)
     compute_all_truncated_unsupervised_metrics(args.model_path, args.representation, model_ids=args.model_ids,
                                                overwrite=args.overwrite, nb_proc=args.multiprocess)
+
+
+def compute_effective_ranks(args):
+    if args.model_ids_range is not None:
+        args.model_ids = range(*args.model_ids_range)
+    compute_all_effective_ranks(args.model_path, args.representation, model_ids=args.model_ids,overwrite=args.overwrite,
+                                nb_proc=args.multiprocess)
 
 
 def compute_downstream_tasks(args):
@@ -83,13 +91,26 @@ if __name__ == "__main__":
     um.add_argument("representation", type=str, choices=["mean", "sampled"],
                     help="Representation from which we need to compute unsupervised scores")
     gum = um.add_mutually_exclusive_group()
-    gum.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to postprocess")
+    gum.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to evaluate")
     gum.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
-                     help="Range of ID of the models to postprocess")
+                     help="Range of ID of the models to evaluate")
     um.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
     um.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
                     help="UNSTABLE: Performs distributed computation")
     um.set_defaults(func=compute_unsupervised_metrics)
+
+    ef = subparsers.add_parser("effective_rank", aliases=["ef"])
+    ef.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
+    ef.add_argument("representation", type=str, choices=["mean", "sampled"],
+                    help="Representation from which we need to compute the effective rank")
+    gef = ef.add_mutually_exclusive_group()
+    gef.add_argument("--model_ids", "-i", nargs="+", type=str, help="ID of the models to evaluate")
+    gef.add_argument("--model_ids_range", "-r", nargs=3, metavar=('min', 'max', 'step'), type=int,
+                     help="Range of ID of the models to evaluate")
+    ef.add_argument("--overwrite", "-o", action="store_true", help="Overwrite existing results")
+    ef.add_argument("--multiprocess", "-m", nargs='?', const=3, type=int,
+                    help="UNSTABLE: Performs distributed computation")
+    ef.set_defaults(func=compute_effective_ranks)
 
     hist = subparsers.add_parser("histograms", aliases=["hs"])
     hist.add_argument("model_path", type=str, help="Path where the pre-trained models are stored")
