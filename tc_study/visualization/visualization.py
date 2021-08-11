@@ -52,15 +52,19 @@ def draw_truncated_scores(in_fname, out_path, y_label="full.gaussian_total_corre
     plt.tight_layout()
     save_figure(out_fname)
 
+
 def draw_all_truncated_scores(in_path, out_path, y_label, global_res_file="global_results.tsv"):
     in_path = in_path.rstrip("/")
     glob_file = "{}/{}".format(in_path, global_res_file)
     all_files = glob.glob("{}/*.tsv".format(in_path))
     all_files.remove(glob_file)
     for file in all_files:
-        for comb in get_variables_combinations():
-            draw_truncated_scores(file, out_path, y_label="{}.{}".format(comb, y_label))
-            # draw_truncated_scores(file, out_path,  y_label="{}.{}".format(comb, y_label), ci="sd")
+        if y_label == "effective_rank":
+            draw_truncated_scores(file, out_path, y_label=y_label)
+        else:
+            for comb in get_variables_combinations():
+                draw_truncated_scores(file, out_path, y_label="{}.{}".format(comb, y_label))
+                # draw_truncated_scores(file, out_path,  y_label="{}.{}".format(comb, y_label), ci="sd")
 
 
 def draw_tc_vp(in_fname, out_path, y_label="full.gaussian_total_correlation", ci=None):
@@ -93,7 +97,9 @@ def draw_tc_vp(in_fname, out_path, y_label="full.gaussian_total_correlation", ci
 
     ax1.set_xlabel(x_label.replace("tc_", "").replace("_", " ").capitalize())
     ax1.set_ylabel("Passive variables (averaged)")
-    ax2.set_ylabel(y_label.split(".")[1].replace("_", " ").capitalize())
+    if y_label != "effective_rank":
+        y_label = y_label.split(".")[1]
+    ax2.set_ylabel(y_label.replace("_", " ").capitalize())
 
     fig.tight_layout()
 
@@ -101,11 +107,13 @@ def draw_tc_vp(in_fname, out_path, y_label="full.gaussian_total_correlation", ci
 
 
 def draw_all_tc_vp(in_path, out_path, y_label, global_res_file="global_results.tsv"):
+    if y_label != "effective_rank":
+        y_label = "full.{}".format(y_label)
     glob_file = "{}/{}".format(in_path, global_res_file)
     all_files = glob.glob("{}/*.tsv".format(in_path))
     all_files.remove(glob_file)
     for file in all_files:
-        draw_tc_vp(file, out_path, y_label="full.{}".format(y_label))
+        draw_tc_vp(file, out_path, y_label=y_label)
         # draw_tc_vp(file, out_path, y_label, ci="sd")
 
 

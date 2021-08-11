@@ -7,7 +7,6 @@ from disentanglement_lib.utils.aggregate_results import _load
 from tensorflow._api.v1.compat.v1 import gfile
 
 from tc_study.utils.models import get_model_info
-from tc_study.utils.string_manipulation import remove_prefix
 from tc_study.visualization import logger
 from tc_study.visualization.utils import get_variables_combinations
 
@@ -46,6 +45,8 @@ def aggregate_scores(model_info, base_path, representation, metric="truncated_un
                "evaluation_results.covariance_matrix": "covariance_matrix",
                "evaluation_results.correlation_matrix": "correlation_matrix",
                "evaluation_results.mutual_info_matrix": "mutual_info_matrix",
+               "evaluation_results.rank": "rank",
+               "evaluation_results.effective_rank": "effective_rank",
                }
     comb_dict = {"evaluation_results.random:mean_test_accuracy": "random.mean_test_accuracy"}
     for c in comb:
@@ -115,8 +116,11 @@ def aggregate_all_scores(base_path, out_path):
         df2 = df2.drop(["num_passive_variables", "num_mixed_variables", "num_active_variables"], axis=1,
                        errors="ignore")
         df = df.merge(df2)
+        df3 = aggregate_scores(model_info, base_path, "sampled", "effective_rank")
+        df3 = df3.append(aggregate_scores(model_info, base_path, "mean", "effective_rank"), ignore_index=True)
+        df = df.merge(df3)
         df.to_csv("{}/{}_{}.tsv".format(out_path, model_info.model, model_info.dataset), sep="\t", index=False)
         df_list.append(df)
-        del df2
+        del df2, df3
     main_df = get_aggregated_version(df_list)
     main_df.to_csv("{}/global_results.tsv".format(out_path), sep="\t", index=False)
